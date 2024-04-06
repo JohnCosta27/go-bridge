@@ -120,3 +120,42 @@ const SimpleButComplex = object({
 		t.FailNow()
 	}
 }
+
+func TestMultipleSimpleStructs(t *testing.T) {
+	simpleStruct := `
+package types
+
+type SimpleStruct struct {
+	Hello string
+}
+
+type AlsoSimpleStruct struct {
+	World string
+}
+  `
+
+	valibotValidator := `
+import { object, string } from 'valibot';
+
+const SimpleStruct = object({
+  Hello: string(),
+});
+
+const AlsoSimpleStruct = object({
+  World: string(),
+});
+`
+
+	outputParse, err := Parse(simpleStruct)
+	t.Log(outputParse)
+
+	if err != nil {
+		t.Log("Error is not null")
+		t.Log(err)
+		t.FailNow()
+	}
+
+	if outputParse != valibotValidator {
+		t.FailNow()
+	}
+}
