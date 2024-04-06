@@ -5,6 +5,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"slices"
 )
 
 type NameType struct {
@@ -42,6 +43,9 @@ func getJsType(goType string) (string, error) {
 func structsToValibot(structList StructList) (string, error) {
 	valibotOutput := ""
 
+	importedValidators := make([]string, 0)
+	importedValidators = append(importedValidators, "object")
+
 	for structName, structType := range structList {
 		localValidbotOutput := "const " + structName + " = object({\n"
 
@@ -51,6 +55,11 @@ func structsToValibot(structList StructList) (string, error) {
 				return "", err
 			}
 
+			exist := slices.Index(importedValidators, jsType) != -1
+			if !exist {
+				importedValidators = append(importedValidators, jsType)
+			}
+
 			localValidbotOutput += "  " + fieldType.Name + ": " + jsType + "(),\n"
 		}
 
@@ -58,7 +67,14 @@ func structsToValibot(structList StructList) (string, error) {
 		valibotOutput += "\n" + localValidbotOutput + "\n"
 	}
 
-	return valibotOutput, nil
+	importLine := ""
+	for _, validator := range importedValidators {
+		importLine += validator + ", "
+	}
+
+	importLine = "import { " + importLine[:len(importLine)-2] + " } from 'valibot';\n"
+
+	return "\n" + importLine + valibotOutput, nil
 }
 
 func structAstToList(astStructs []*ast.Field) ([]NameType, error) {

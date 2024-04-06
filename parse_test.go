@@ -12,12 +12,15 @@ type SimpleStruct struct {
   `
 
 	valibotValidator := `
+import { object, string } from 'valibot';
+
 const SimpleStruct = object({
   Hello: string(),
 });
 `
 
 	outputParse, err := Parse(simpleStruct)
+	t.Log(outputParse)
 
 	if err != nil {
 		t.Log("Error is not null")
@@ -43,6 +46,8 @@ type NotAsSimple struct {
   `
 
 	valibotValidator := `
+import { object, number, string, boolean } from 'valibot';
+
 const NotAsSimple = object({
   Hello: number(),
   World: number(),
@@ -85,6 +90,8 @@ type SimpleButComplex struct {
 `
 
 	valibotValidator := `
+import { object, number, boolean, string } from 'valibot';
+
 const SimpleButComplex = object({
   A: number(),
   B: number(),
