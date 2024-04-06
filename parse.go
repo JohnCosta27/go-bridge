@@ -13,7 +13,12 @@ type NameType struct {
 	Type string
 }
 
-type StructList map[string][]NameType
+type Struct struct {
+	Name   string
+	Fields []NameType
+}
+
+type StructList []Struct
 
 var NoJsType = errors.New("Cannot find corresponding JS type")
 
@@ -42,16 +47,44 @@ func getJsType(goType string) (string, error) {
 	return "", NoJsType
 }
 
+type NodeWithIndex struct {
+	Index int
+	Node  Node
+}
+
+func orderStructList(structList StructList) (StructList, error) {
+	nodeMap := make(map[string]NodeWithIndex)
+
+	for i, s := range structList {
+		node := NodeWithIndex{Index: i, Node: Node{Name: s.Name, Edges: make([]Node, 0)}}
+		nodeMap[node.Node.Name] = node
+	}
+
+	for _, node := range nodeMap {
+		for _, field := range structList[node.Index].Fields {
+			_, err := getJsType(field.Type)
+
+			if err != NoJsType {
+				continue
+			}
+
+			node.Node.Edges = append(node.Node.Edges, nodeMap[field.Name].Node)
+		}
+	}
+
+	return nil, nil
+}
+
 func structsToValibot(structList StructList) (string, error) {
 	valibotOutput := ""
 
 	importedValidators := make([]string, 0)
 	importedValidators = append(importedValidators, "object")
 
-	for structName, structType := range structList {
-		localValidbotOutput := "const " + structName + " = object({\n"
+	for _, s := range structList {
+		localValidbotOutput := "const " + s.Name + " = object({\n"
 
-		for _, fieldType := range structType {
+		for _, fieldType := range s.Fields {
 			jsType, err := getJsType(fieldType.Type)
 
 			if err == NoJsType {
@@ -122,7 +155,7 @@ func Parse(goCode string) (string, error) {
 		return "", err
 	}
 
-	structList := make(StructList)
+	structList := make(StructList, 0)
 
 	for _, dec := range parsedFile.Decls {
 		typeDec, ok := dec.(*ast.GenDecl)
@@ -150,7 +183,7 @@ func Parse(goCode string) (string, error) {
 				return "", err
 			}
 
-			structList[structName] = structFields
+			structList = append(structList, Struct{Name: structName, Fields: structFields})
 		}
 	}
 

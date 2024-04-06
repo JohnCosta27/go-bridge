@@ -198,3 +198,59 @@ const MyStruct = object({
 		t.FailNow()
 	}
 }
+
+func TestMultipleNestedStructs(t *testing.T) {
+	simpleStruct := `
+package types
+
+type A struct {
+	A string
+  B C
+  D E
+}
+
+type C struct {
+  Hello string
+  A E
+}
+
+type E struct {
+	World bool
+  Woooo float64
+}
+`
+
+	valibotValidator := `
+import { object, string, boolean, number } from 'valibot';
+
+const A = object({
+  A: string(),
+  B: C,
+  D: E,
+});
+
+const C = object({
+  Hello: string(),
+  A: E,
+});
+
+const E = object({
+  World: boolean(),
+  Woooo: number(),
+});
+`
+
+	outputParse, err := Parse(simpleStruct)
+	t.Log(outputParse)
+	t.Log(len(outputParse), len(valibotValidator))
+
+	if err != nil {
+		t.Log("Error is not null")
+		t.Log(err)
+		t.FailNow()
+	}
+
+	if outputParse != valibotValidator {
+		t.FailNow()
+	}
+}
