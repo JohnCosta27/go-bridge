@@ -159,3 +159,42 @@ const AlsoSimpleStruct = object({
 		t.FailNow()
 	}
 }
+
+func TestNestedStruct(t *testing.T) {
+	simpleStruct := `
+package types
+
+type OtherStruct struct {
+	Hello string
+}
+
+type MyStruct struct {
+	Nested OtherStruct
+}
+  `
+
+	valibotValidator := `
+import { object, string } from 'valibot';
+
+const OtherStruct = object({
+  Hello: string(),
+});
+
+const MyStruct = object({
+  Nested: OtherStruct,
+});
+`
+
+	outputParse, err := Parse(simpleStruct)
+	t.Log(outputParse)
+
+	if err != nil {
+		t.Log("Error is not null")
+		t.Log(err)
+		t.FailNow()
+	}
+
+	if outputParse != valibotValidator {
+		t.FailNow()
+	}
+}

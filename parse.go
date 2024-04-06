@@ -15,6 +15,8 @@ type NameType struct {
 
 type StructList map[string][]NameType
 
+var NoJsType = errors.New("Cannot find corresponding JS type")
+
 func getJsType(goType string) (string, error) {
 	switch goType {
 	case "int":
@@ -37,7 +39,7 @@ func getJsType(goType string) (string, error) {
 		return "boolean", nil
 	}
 
-	return "", errors.New("Cannot find corresponding JS type")
+	return "", NoJsType
 }
 
 func structsToValibot(structList StructList) (string, error) {
@@ -51,16 +53,20 @@ func structsToValibot(structList StructList) (string, error) {
 
 		for _, fieldType := range structType {
 			jsType, err := getJsType(fieldType.Type)
-			if err != nil {
-				return "", err
+
+			if err == NoJsType {
+				// Here, we must have a nested struct.
+				localValidbotOutput += "  " + fieldType.Name + ": " + fieldType.Type + ",\n"
+
+				continue
 			}
 
 			exist := slices.Index(importedValidators, jsType) != -1
 			if !exist {
 				importedValidators = append(importedValidators, jsType)
 			}
-
 			localValidbotOutput += "  " + fieldType.Name + ": " + jsType + "(),\n"
+
 		}
 
 		localValidbotOutput += "});"
