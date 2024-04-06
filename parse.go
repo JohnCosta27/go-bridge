@@ -12,6 +12,8 @@ type NameType struct {
 	Type string
 }
 
+type StructList map[string][]NameType
+
 func getJsType(goType string) (string, error) {
 	switch goType {
 	case "int":
@@ -37,6 +39,55 @@ func getJsType(goType string) (string, error) {
 	return "", errors.New("Cannot find corresponding JS type")
 }
 
+func structsToValibot(structList StructList) (string, error) {
+	valibotOutput := ""
+
+	for structName, structType := range structList {
+		localValidbotOutput := "const " + structName + " = object({\n"
+
+		for _, fieldType := range structType {
+			jsType, err := getJsType(fieldType.Type)
+			if err != nil {
+				return "", err
+			}
+
+			localValidbotOutput += "  " + fieldType.Name + ": " + jsType + "(),\n"
+		}
+
+		localValidbotOutput += "});"
+		valibotOutput += "\n" + localValidbotOutput + "\n"
+	}
+
+	return valibotOutput, nil
+}
+
+func structAstToList(astStructs []*ast.Field) ([]NameType, error) {
+	structFields := make([]NameType, 0)
+
+	for _, l := range astStructs {
+		if len(l.Names) != 1 {
+			return structFields, errors.New("More than one name returned")
+		}
+
+		fieldName := l.Names[0].Name
+
+		fieldTypeIdent, ok := l.Type.(*ast.Ident)
+		fieldType := fieldTypeIdent.Name
+
+		if !ok {
+			return structFields, errors.New("Field type was more complicated")
+		}
+
+		if !ok {
+			return structFields, errors.New("Field Type was more complicated, not supported yet")
+		}
+
+		structFields = append(structFields, NameType{Name: fieldName, Type: fieldType})
+	}
+
+	return structFields, nil
+}
+
 /*
  * Takes Golang code as input,
  * And outputs the correct parsing code
@@ -49,7 +100,7 @@ func Parse(goCode string) (string, error) {
 		return "", err
 	}
 
-	structList := make(map[string][]NameType)
+	structList := make(StructList)
 
 	for _, dec := range parsedFile.Decls {
 		typeDec, ok := dec.(*ast.GenDecl)
@@ -71,49 +122,19 @@ func Parse(goCode string) (string, error) {
 			}
 
 			structName := typeSpec.Name.Name
-			parseMap := make([]NameType, 0)
 
-			for _, l := range structType.Fields.List {
-				if len(l.Names) != 1 {
-					return "", errors.New("More than one name returned")
-				}
-
-				fieldName := l.Names[0].Name
-
-				fieldTypeIdent, ok := l.Type.(*ast.Ident)
-				fieldType := fieldTypeIdent.Name
-
-				if !ok {
-					return "", errors.New("Field type was more complicated")
-				}
-
-				if !ok {
-					return "", errors.New("Field Type was more complicated, not supported yet")
-				}
-
-				parseMap = append(parseMap, NameType{Name: fieldName, Type: fieldType})
-			}
-
-			structList[structName] = parseMap
-		}
-	}
-
-	valibotOutput := ""
-
-	for structName, structType := range structList {
-		localValidbotOutput := "const " + structName + " = object({\n"
-
-		for _, fieldType := range structType {
-			jsType, err := getJsType(fieldType.Type)
+			structFields, err := structAstToList(structType.Fields.List)
 			if err != nil {
 				return "", err
 			}
 
-			localValidbotOutput += "  " + fieldType.Name + ": " + jsType + "(),\n"
+			structList[structName] = structFields
 		}
+	}
 
-		localValidbotOutput += "});"
-		valibotOutput += "\n" + localValidbotOutput + "\n"
+	valibotOutput, err := structsToValibot(structList)
+	if err != nil {
+		return "", err
 	}
 
 	return valibotOutput, nil
