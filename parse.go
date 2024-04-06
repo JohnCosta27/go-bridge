@@ -49,14 +49,14 @@ func getJsType(goType string) (string, error) {
 
 type NodeWithIndex struct {
 	Index int
-	Node  Node
+	Node  *Node
 }
 
 func orderStructList(structList StructList) (StructList, error) {
 	nodeMap := make(map[string]NodeWithIndex)
 
 	for i, s := range structList {
-		node := NodeWithIndex{Index: i, Node: Node{Name: s.Name, Edges: make([]Node, 0)}}
+		node := NodeWithIndex{Index: i, Node: &Node{Name: s.Name, Edges: make([]*Node, 0)}}
 		nodeMap[node.Node.Name] = node
 	}
 
