@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -48,45 +47,42 @@ func getJsType(goType string) (string, error) {
 	return "", NoJsType
 }
 
-type NodeWithIndex struct {
-	Index int
-	Node  *Node
-}
-
 /*
  * Returned a topologically ordered list of structs,
  * This function is ugly and quite inefficient,
  * much room for improvement.
  */
 func orderStructList(structList StructList) (StructList, error) {
-	nodeMap := make(map[string]NodeWithIndex)
+	nodeMap := make([]*Node, 0)
 
-	for i, s := range structList {
-		node := NodeWithIndex{Index: i, Node: &Node{Name: s.Name, Edges: make([]*Node, 0)}}
-		nodeMap[node.Node.Name] = node
+	for _, s := range structList {
+		node := &Node{Name: s.Name, Edges: make([]*Node, 0)}
+		nodeMap = append(nodeMap, node)
 	}
 
 	nodeList := make([]*Node, 0)
 
-	for _, node := range nodeMap {
-		for _, field := range structList[node.Index].Fields {
+	for i, node := range nodeMap {
+		for _, field := range structList[i].Fields {
 			_, err := getJsType(field.Type)
 
 			if err != NoJsType {
 				continue
 			}
 
-			node.Node.Edges = append(node.Node.Edges, nodeMap[field.Name].Node)
+			nodeIndex := slices.IndexFunc(nodeMap, func(n *Node) bool {
+				return n.Name == field.Type
+			})
+
+			node.Edges = append(node.Edges, nodeMap[nodeIndex])
 		}
 
-		nodeList = append(nodeList, node.Node)
+		nodeList = append(nodeList, node)
 	}
 
 	orderedList := make(StructList, len(structList))
 
 	ordering := topologicalSort(nodeList)
-
-	fmt.Println(len(orderedList), len(ordering))
 
 	// Very inefficient linear search
 	// TODO: Make it better.

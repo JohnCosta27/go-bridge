@@ -221,7 +221,7 @@ type E struct {
 `
 
 	valibotValidator := `
-import { object, string, boolean, number } from 'valibot';
+import { object, boolean, number, string } from 'valibot';
 
 const E = object({
   World: boolean(),
