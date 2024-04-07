@@ -1,58 +1,44 @@
 package main
 
-import (
-	"slices"
-)
-
 type Node struct {
 	Name    string
 	Visited bool
 	Edges   []*Node
 }
 
-func contains(s []string, e string) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
+func dfs(node *Node, list *[]string) *[]string {
+	if node.Visited {
+		return list
 	}
-	return false
-}
-
-func removeDuplicates(strList []string) []string {
-	list := []string{}
-	for _, item := range strList {
-		if contains(list, item) == false {
-			list = append(list, item)
-		}
-	}
-	return list
-}
-
-func dfs(node Node) []string {
-	ordering := make([]string, 0)
 
 	for _, n := range node.Edges {
-		if n.Visited {
-			continue
-		}
-
-		ordering = removeDuplicates(slices.Concat(ordering, dfs(*n)))
+		dfs(n, list)
 	}
 
 	node.Visited = true
+	*list = append(*list, node.Name)
 
-	ordering = append(ordering, node.Name)
-	return ordering
+	return list
 }
 
-func topologicalSort(nodes []Node) []string {
+func hasUnvisitedNode(nodes []*Node) bool {
+	for _, n := range nodes {
+		if !n.Visited {
+			return true
+		}
+	}
+
+	return false
+}
+
+func topologicalSort(nodes []*Node) []string {
 	longest := []string{}
 
-	for _, n := range nodes {
-		order := dfs(n)
-		if len(order) > len(longest) {
-			longest = order
+	for hasUnvisitedNode(nodes) {
+		for _, n := range nodes {
+			if !n.Visited {
+				dfs(n, &longest)
+			}
 		}
 	}
 

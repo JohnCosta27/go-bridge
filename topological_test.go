@@ -5,8 +5,7 @@ import (
 	"testing"
 )
 
-func TestSingle(t *testing.T) {
-	t.Skip()
+func TestTopoSingle(t *testing.T) {
 	node := Node{
 		Name:    "A",
 		Visited: false,
@@ -15,7 +14,7 @@ func TestSingle(t *testing.T) {
 
 	correctOrder := []string{"A"}
 
-	nodeSlice := []Node{node}
+	nodeSlice := []*Node{&node}
 	testOrder := topologicalSort(nodeSlice)
 
 	t.Log(testOrder)
@@ -26,8 +25,7 @@ func TestSingle(t *testing.T) {
 	}
 }
 
-func TestTwo(t *testing.T) {
-	t.Skip()
+func TestTopoTwo(t *testing.T) {
 	n1 := Node{
 		Name:    "A",
 		Visited: false,
@@ -44,7 +42,7 @@ func TestTwo(t *testing.T) {
 
 	correctOrder := []string{"B", "A"}
 
-	nodeSlice := []Node{n1, n2}
+	nodeSlice := []*Node{&n1, &n2}
 	testOrder := topologicalSort(nodeSlice)
 
 	t.Log(testOrder)
@@ -54,7 +52,10 @@ func TestTwo(t *testing.T) {
 		t.FailNow()
 	}
 
-	nodeSlice = []Node{n2, n1}
+	n1.Visited = false
+	n2.Visited = false
+
+	nodeSlice = []*Node{&n2, &n1}
 	testOrder = topologicalSort(nodeSlice)
 
 	t.Log(testOrder)
@@ -65,7 +66,7 @@ func TestTwo(t *testing.T) {
 	}
 }
 
-func TestComplex(t *testing.T) {
+func TestTopoComplex(t *testing.T) {
 	n1 := Node{
 		Name:    "A",
 		Visited: false,
@@ -103,7 +104,33 @@ func TestComplex(t *testing.T) {
 
 	correctOrder := []string{"F", "D", "C", "B", "A"}
 
-	nodeSlice := []Node{n3, n4, n2, n1, n5}
+	nodeSlice := []*Node{&n3, &n4, &n2, &n1, &n5}
+	testOrder := topologicalSort(nodeSlice)
+
+	t.Log(testOrder)
+
+	if slices.Compare(correctOrder, testOrder) != 0 {
+		t.Log("Slices are not equal")
+		t.FailNow()
+	}
+}
+
+func TestTopoDisconnected(t *testing.T) {
+	n1 := Node{
+		Name:    "A",
+		Visited: false,
+		Edges:   make([]*Node, 0),
+	}
+
+	n2 := Node{
+		Name:    "B",
+		Visited: false,
+		Edges:   make([]*Node, 0),
+	}
+
+	correctOrder := []string{"A", "B"}
+
+	nodeSlice := []*Node{&n1, &n2}
 	testOrder := topologicalSort(nodeSlice)
 
 	t.Log(testOrder)

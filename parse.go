@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -52,6 +53,11 @@ type NodeWithIndex struct {
 	Node  *Node
 }
 
+/*
+ * Returned a topologically ordered list of structs,
+ * This function is ugly and quite inefficient,
+ * much room for improvement.
+ */
 func orderStructList(structList StructList) (StructList, error) {
 	nodeMap := make(map[string]NodeWithIndex)
 
@@ -59,6 +65,8 @@ func orderStructList(structList StructList) (StructList, error) {
 		node := NodeWithIndex{Index: i, Node: &Node{Name: s.Name, Edges: make([]*Node, 0)}}
 		nodeMap[node.Node.Name] = node
 	}
+
+	nodeList := make([]*Node, 0)
 
 	for _, node := range nodeMap {
 		for _, field := range structList[node.Index].Fields {
@@ -70,9 +78,37 @@ func orderStructList(structList StructList) (StructList, error) {
 
 			node.Node.Edges = append(node.Node.Edges, nodeMap[field.Name].Node)
 		}
+
+		nodeList = append(nodeList, node.Node)
 	}
 
-	return nil, nil
+	orderedList := make(StructList, len(structList))
+
+	ordering := topologicalSort(nodeList)
+
+	fmt.Println(len(orderedList), len(ordering))
+
+	// Very inefficient linear search
+	// TODO: Make it better.
+
+	for orderIndex, n := range ordering {
+
+		index := -1
+		for i, s := range structList {
+			if s.Name == n {
+				index = i
+				break
+			}
+		}
+
+		if index == -1 {
+			return structList, errors.New("Could not find index of node")
+		}
+
+		orderedList[orderIndex] = structList[index]
+	}
+
+	return orderedList, nil
 }
 
 func structsToValibot(structList StructList) (string, error) {
@@ -187,7 +223,12 @@ func Parse(goCode string) (string, error) {
 		}
 	}
 
-	valibotOutput, err := structsToValibot(structList)
+	newStructList, err := orderStructList(structList)
+	if err != nil {
+		return "", err
+	}
+
+	valibotOutput, err := structsToValibot(newStructList)
 	if err != nil {
 		return "", err
 	}
