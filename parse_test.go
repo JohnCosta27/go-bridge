@@ -254,3 +254,43 @@ const A = object({
 		t.FailNow()
 	}
 }
+
+func TestEmbeddedStruct(t *testing.T) {
+	simpleStruct := `
+package types
+
+type B struct {
+  A
+}
+
+type A struct {
+	Hello string
+}
+`
+
+	valibotValidator := `
+import { object, string } from 'valibot';
+
+const B = object({
+  Hello: string(),
+});
+
+const A = object({
+  Hello: string(),
+});
+`
+
+	outputParse, err := Parse(simpleStruct)
+	t.Log(outputParse)
+	t.Log(len(outputParse), len(valibotValidator))
+
+	if err != nil {
+		t.Log("Error is not null")
+		t.Log(err)
+		t.FailNow()
+	}
+
+	if outputParse != valibotValidator {
+		t.FailNow()
+	}
+}

@@ -9,8 +9,9 @@ import (
 )
 
 type NameType struct {
-	Name string
-	Type string
+	Name     string
+	Type     string
+	Embedded bool
 }
 
 type Struct struct {
@@ -148,35 +149,65 @@ func structsToValibot(structList StructList) (string, error) {
 	return "\n" + importLine + valibotOutput, nil
 }
 
-func structAstToList(astStructs []*ast.Field) ([]NameType, error) {
+func structAstToList(allAstStructs []StructWithName, astStructs []*ast.Field) ([]NameType, error) {
 	structFields := make([]NameType, 0)
 
 	for _, l := range astStructs {
-		if len(l.Names) != 1 {
+		if len(l.Names) > 1 {
 			return structFields, errors.New("More than one name returned")
 		}
 
-		fieldName := l.Names[0].Name
-
 		fieldTypeIdent, ok := l.Type.(*ast.Ident)
-		fieldType := fieldTypeIdent.Name
-
 		if !ok {
 			return structFields, errors.New("Field type was more complicated")
 		}
+
+		fieldType := fieldTypeIdent.Name
+
+		if len(l.Names) == 0 {
+			// Embedded
+			astFieldIndex := slices.IndexFunc(allAstStructs, func(ast StructWithName) bool {
+				return ast.Name == fieldType
+			})
+
+			if astFieldIndex == -1 {
+				return structFields, errors.New("Could not find embedded struct")
+			}
+
+			embeddedStruct := allAstStructs[astFieldIndex]
+
+			embeddedStructFields, err := structAstToList(allAstStructs, embeddedStruct.Fields.List)
+			if err != nil {
+				return structFields, err
+			}
+
+			structFields = append(structFields, embeddedStructFields...)
+
+			continue
+		}
+
+		fieldName := l.Names[0].Name
 
 		if !ok {
 			return structFields, errors.New("Field Type was more complicated, not supported yet")
 		}
 
-		structFields = append(structFields, NameType{Name: fieldName, Type: fieldType})
+		nameType := NameType{Name: fieldName, Type: fieldType}
+		structFields = append(structFields, nameType)
 	}
 
 	return structFields, nil
 }
 
+type StructWithName struct {
+	*ast.StructType
+	Name string
+}
+
 func getStructListFromAst(file *ast.File) (StructList, error) {
 	structList := make(StructList, 0)
+
+	astStructs := make([]StructWithName, 0)
 
 	for _, dec := range file.Decls {
 		typeDec, ok := dec.(*ast.GenDecl)
@@ -197,15 +228,18 @@ func getStructListFromAst(file *ast.File) (StructList, error) {
 				continue
 			}
 
-			structName := typeSpec.Name.Name
-
-			structFields, err := structAstToList(structType.Fields.List)
-			if err != nil {
-				return structList, err
-			}
-
-			structList = append(structList, Struct{Name: structName, Fields: structFields})
+			astStructs = append(astStructs, StructWithName{Name: typeSpec.Name.Name, StructType: structType})
 		}
+
+	}
+
+	for _, s := range astStructs {
+		structFields, err := structAstToList(astStructs, s.Fields.List)
+		if err != nil {
+			return structList, err
+		}
+
+		structList = append(structList, Struct{Name: s.Name, Fields: structFields})
 	}
 
 	return structList, nil
