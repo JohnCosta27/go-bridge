@@ -294,3 +294,73 @@ const A = object({
 		t.FailNow()
 	}
 }
+
+func TestEmbeddedStructComplex(t *testing.T) {
+	simpleStruct := `
+package types
+
+type A struct {
+  Hello float64
+  B
+  World string
+  C
+}
+
+type B struct {
+	C
+  MyField bool
+}
+
+type C struct {
+  D
+  MyNum int
+}
+
+type D struct {
+  FieldD string
+}
+`
+
+	valibotValidator := `
+import { object, number, string, boolean } from 'valibot';
+
+const A = object({
+  Hello: number(),
+  FieldD: string(),
+  MyNum: number(),
+  MyField: boolean(),
+  World: string(),
+  FieldD: string(),
+  MyNum: number(),
+});
+
+const B = object({
+  FieldD: string(),
+  MyNum: number(),
+  MyField: boolean(),
+});
+
+const C = object({
+  FieldD: string(),
+  MyNum: number(),
+});
+
+const D = object({
+  FieldD: string(),
+});
+`
+
+	outputParse, err := Parse(simpleStruct)
+	t.Log(outputParse)
+	t.Log(len(outputParse), len(valibotValidator))
+
+	if err != nil {
+		t.Log("Error is not null")
+		t.Log(err)
+		t.FailNow()
+	}
+
+	if outputParse != valibotValidator {
+		t.FailNow()
+	}
+}
