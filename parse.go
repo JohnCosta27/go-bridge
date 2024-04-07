@@ -175,21 +175,10 @@ func structAstToList(astStructs []*ast.Field) ([]NameType, error) {
 	return structFields, nil
 }
 
-/*
- * Takes Golang code as input,
- * And outputs the correct parsing code
- * for Valibot.
- */
-func Parse(goCode string) (string, error) {
-	parsedFile, err := parser.ParseFile(token.NewFileSet(), "", goCode, 0)
-
-	if err != nil {
-		return "", err
-	}
-
+func getStructListFromAst(file *ast.File) (StructList, error) {
 	structList := make(StructList, 0)
 
-	for _, dec := range parsedFile.Decls {
+	for _, dec := range file.Decls {
 		typeDec, ok := dec.(*ast.GenDecl)
 
 		if !ok {
@@ -212,11 +201,31 @@ func Parse(goCode string) (string, error) {
 
 			structFields, err := structAstToList(structType.Fields.List)
 			if err != nil {
-				return "", err
+				return structList, err
 			}
 
 			structList = append(structList, Struct{Name: structName, Fields: structFields})
 		}
+	}
+
+	return structList, nil
+}
+
+/*
+ * Takes Golang code as input,
+ * And outputs the correct parsing code
+ * for Valibot.
+ */
+func Parse(goCode string) (string, error) {
+	parsedFile, err := parser.ParseFile(token.NewFileSet(), "", goCode, 0)
+
+	if err != nil {
+		return "", err
+	}
+
+	structList, err := getStructListFromAst(parsedFile)
+	if err != nil {
+		return "", err
 	}
 
 	newStructList, err := orderStructList(structList)
