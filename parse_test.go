@@ -223,10 +223,9 @@ type E struct {
 	valibotValidator := `
 import { object, string, boolean, number } from 'valibot';
 
-const A = object({
-  A: string(),
-  B: C,
-  D: E,
+const E = object({
+  World: boolean(),
+  Woooo: number(),
 });
 
 const C = object({
@@ -234,9 +233,10 @@ const C = object({
   A: E,
 });
 
-const E = object({
-  World: boolean(),
-  Woooo: number(),
+const A = object({
+  A: string(),
+  B: C,
+  D: E,
 });
 `
 

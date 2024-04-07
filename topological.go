@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"slices"
 )
 
@@ -33,19 +32,12 @@ func removeDuplicates(strList []string) []string {
 func dfs(node Node) []string {
 	ordering := make([]string, 0)
 
-	fmt.Println("Node: " + node.Name)
-	fmt.Printf("Edge length: %v\n", len(node.Edges))
-
 	for _, n := range node.Edges {
-		fmt.Println("Edge: " + n.Name)
-		fmt.Println()
 		if n.Visited {
 			continue
 		}
 
 		ordering = removeDuplicates(slices.Concat(ordering, dfs(*n)))
-
-		fmt.Println(n.Name, ordering)
 	}
 
 	node.Visited = true
