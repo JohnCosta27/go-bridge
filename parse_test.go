@@ -364,3 +364,44 @@ const D = object({
 		t.FailNow()
 	}
 }
+
+func TestMultipleFiles(t *testing.T) {
+	simpleStruct := []string{`
+package types
+
+type SimpleStruct struct {
+	Hello string
+}
+`, `
+package types
+
+type AnotherSimpleStruct struct {
+    World SimpleStruct
+}
+`}
+
+	valibotValidator := `
+import { object, string } from 'valibot';
+
+const SimpleStruct = object({
+  Hello: string(),
+});
+
+const AnotherSimpleStruct = object({
+  World: SimpleStruct,
+});
+`
+
+	outputParse, err := Parse(simpleStruct)
+	t.Log(outputParse)
+
+	if err != nil {
+		t.Log("Error is not null")
+		t.Log(err)
+		t.FailNow()
+	}
+
+	if outputParse != valibotValidator {
+		t.FailNow()
+	}
+}
