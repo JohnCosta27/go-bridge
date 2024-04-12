@@ -250,19 +250,31 @@ func getStructListFromAst(file *ast.File) (StructList, error) {
  * And outputs the correct parsing code
  * for Valibot.
  */
-func Parse(goCode string) (string, error) {
-	parsedFile, err := parser.ParseFile(token.NewFileSet(), "", goCode, 0)
+func Parse(goCode []string) (string, error) {
 
-	if err != nil {
-		return "", err
+	astFile := make([]*ast.File, len(goCode))
+
+	for i, code := range goCode {
+		parsedFile, err := parser.ParseFile(token.NewFileSet(), "", code, 0)
+		if err != nil {
+			return "", err
+		}
+
+		astFile[i] = parsedFile
 	}
 
-	structList, err := getStructListFromAst(parsedFile)
-	if err != nil {
-		return "", err
+	totalStructList := make(StructList, 0)
+
+	for _, ast := range astFile {
+		structList, err := getStructListFromAst(ast)
+		if err != nil {
+			return "", err
+		}
+
+		totalStructList = append(totalStructList, structList...)
 	}
 
-	newStructList, err := orderStructList(structList)
+	newStructList, err := orderStructList(totalStructList)
 	if err != nil {
 		return "", err
 	}
