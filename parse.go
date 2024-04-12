@@ -2,9 +2,13 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"io/fs"
+	"os"
+	"path/filepath"
 	"slices"
 )
 
@@ -157,6 +161,25 @@ func structAstToList(allAstStructs []StructWithName, astStructs []*ast.Field) ([
 			return structFields, errors.New("More than one name returned")
 		}
 
+		fmt.Printf("AST TYPE: %T\n", l.Type)
+
+		selectorExpr, ok := l.Type.(*ast.SelectorExpr)
+		if ok {
+
+			ident, ok := selectorExpr.X.(*ast.Ident)
+			if !ok {
+				return structFields, errors.New("Not a field access?")
+			}
+
+			//
+			// when we get this, we should load the package into memory
+			// (if it isn't already)
+			// and get the type definitions from there.
+			//
+
+			fmt.Println(ident.Name, selectorExpr.Sel.Name)
+		}
+
 		fieldTypeIdent, ok := l.Type.(*ast.Ident)
 		if !ok {
 			return structFields, errors.New("Field type was more complicated")
@@ -245,13 +268,59 @@ func getStructListFromAst(file *ast.File) (StructList, error) {
 	return structList, nil
 }
 
+func ParseV2(entryFile string) (string, error) {
+	fileDirectory := filepath.Dir(entryFile)
+
+	//
+	// First, let's read all the .go files from this DIR
+	// as these can be used anywhere in entryFile
+	// It does mean being heavier on resources initally.
+	//
+
+	files, err := os.ReadDir(fileDirectory)
+	if err != nil {
+		return "", err
+	}
+
+	goFiles := make([]fs.DirEntry, 0)
+
+	for _, f := range files {
+		if f.IsDir() {
+			continue
+		}
+
+		fileName := f.Name()
+
+		if len(fileName) < 3 {
+			continue
+		}
+
+		if fileName[len(fileName)-3:] != ".go" {
+			continue
+		}
+
+		goFiles = append(goFiles, f)
+	}
+
+	goFilesContent := make([]string, len(goFiles))
+	for i, f := range goFiles {
+		content, err := os.ReadFile(fileDirectory + "/" + f.Name())
+		if err != nil {
+			return "", err
+		}
+
+		goFilesContent[i] = string(content)
+	}
+
+	return Parse(goFilesContent)
+}
+
 /*
  * Takes Golang code as input,
  * And outputs the correct parsing code
  * for Valibot.
  */
 func Parse(goCode []string) (string, error) {
-
 	astFile := make([]*ast.File, len(goCode))
 
 	for i, code := range goCode {
