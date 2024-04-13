@@ -2,12 +2,11 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"io/fs"
 	"os"
-	"path/filepath"
 	"slices"
 	"sort"
 )
@@ -185,8 +184,8 @@ func structsToValibot(structList StructList) (string, error) {
 // dependencies and getting structs to usable format.
 // ==================================================
 
-func getEmbeddedStructFields(allAstStructs NameToStructPos, structName string) ([]FieldInfo, error) {
-	astF, exists := allAstStructs[structName]
+func getEmbeddedStructFields(allAstStructs *NameToStructPos, structName string) ([]FieldInfo, error) {
+	astF, exists := (*allAstStructs)[structName]
 	if !exists {
 		return []FieldInfo{}, errors.New("Chould not find embedded struct")
 	}
@@ -199,9 +198,28 @@ func getEmbeddedStructFields(allAstStructs NameToStructPos, structName string) (
 	return embeddedStructFields, nil
 }
 
-func getSingleStructField(allAstStructs NameToStructPos, field *ast.Field) ([]FieldInfo, error) {
+func getPackageStructField(allAstStructs *NameToStructPos, expr *ast.SelectorExpr) error {
+	fmt.Printf("%T\n", expr.X)
+
+	return nil
+}
+
+func getSingleStructField(allAstStructs *NameToStructPos, field *ast.Field) ([]FieldInfo, error) {
 	if len(field.Names) > 1 {
 		return make([]FieldInfo, 0), errors.New("More than one name returned")
+	}
+
+	selectorExpr, ok := field.Type.(*ast.SelectorExpr)
+	if ok {
+		//
+		// when we get this, we should load the package into memory
+		// (if it isn't already)
+		// and get the type definitions from there.
+		//
+
+		getPackageStructField(allAstStructs, selectorExpr)
+
+		return []FieldInfo{}, errors.New("Not implemented yet.")
 	}
 
 	fieldTypeIdent, ok := field.Type.(*ast.Ident)
@@ -223,7 +241,7 @@ func getSingleStructField(allAstStructs NameToStructPos, field *ast.Field) ([]Fi
 	return []FieldInfo{{Name: fieldName, Type: fieldType}}, nil
 }
 
-func structAstToList(allAstStructs NameToStructPos, astStructs []*ast.Field) ([]FieldInfo, error) {
+func structAstToList(allAstStructs *NameToStructPos, astStructs []*ast.Field) ([]FieldInfo, error) {
 	structFields := make([]FieldInfo, 0)
 
 	for _, field := range astStructs {
@@ -234,20 +252,6 @@ func structAstToList(allAstStructs NameToStructPos, astStructs []*ast.Field) ([]
 
 		structFields = append(structFields, processedField...)
 
-		// selectorExpr, ok := l.Type.(*ast.SelectorExpr)
-		// if ok {
-		//
-		// 	_, ok := selectorExpr.X.(*ast.Ident)
-		// 	if !ok {
-		// 		return structFields, errors.New("Not a field access?")
-		// 	}
-		//
-		// 	//
-		// 	// when we get this, we should load the package into memory
-		// 	// (if it isn't already)
-		// 	// and get the type definitions from there.
-		// 	//
-		// }
 	}
 
 	return structFields, nil
@@ -286,7 +290,7 @@ func getStructListFromAst(file *ast.File) (StructList, error) {
 	}
 
 	for sName, s := range astStructs {
-		structFields, err := structAstToList(astStructs, s.Fields.List)
+		structFields, err := structAstToList(&astStructs, s.Fields.List)
 		if err != nil {
 			return structList, err
 		}
@@ -298,50 +302,12 @@ func getStructListFromAst(file *ast.File) (StructList, error) {
 }
 
 func ParseV2(entryFile string) (string, error) {
-	fileDirectory := filepath.Dir(entryFile)
-
-	//
-	// First, let's read all the .go files from this DIR
-	// as these can be used anywhere in entryFile
-	// It does mean being heavier on resources initally.
-	//
-
-	files, err := os.ReadDir(fileDirectory)
+	goContent, err := os.ReadFile(entryFile)
 	if err != nil {
 		return "", err
 	}
 
-	goFiles := make([]fs.DirEntry, 0)
-
-	for _, f := range files {
-		if f.IsDir() {
-			continue
-		}
-
-		fileName := f.Name()
-
-		if len(fileName) < 3 {
-			continue
-		}
-
-		if fileName[len(fileName)-3:] != ".go" {
-			continue
-		}
-
-		goFiles = append(goFiles, f)
-	}
-
-	goFilesContent := make([]string, len(goFiles))
-	for i, f := range goFiles {
-		content, err := os.ReadFile(fileDirectory + "/" + f.Name())
-		if err != nil {
-			return "", err
-		}
-
-		goFilesContent[i] = string(content)
-	}
-
-	return Parse(goFilesContent)
+	return Parse(string(goContent))
 }
 
 /*
@@ -349,30 +315,18 @@ func ParseV2(entryFile string) (string, error) {
  * And outputs the correct parsing code
  * for Valibot.
  */
-func Parse(goCode []string) (string, error) {
-	astFile := make([]*ast.File, len(goCode))
-
-	for i, code := range goCode {
-		parsedFile, err := parser.ParseFile(token.NewFileSet(), "", code, 0)
-		if err != nil {
-			return "", err
-		}
-
-		astFile[i] = parsedFile
+func Parse(goCode string) (string, error) {
+	parsedFile, err := parser.ParseFile(token.NewFileSet(), "", goCode, 0)
+	if err != nil {
+		return "", err
 	}
 
-	totalStructList := make(StructList, 0)
-
-	for _, ast := range astFile {
-		structList, err := getStructListFromAst(ast)
-		if err != nil {
-			return "", err
-		}
-
-		totalStructList = append(totalStructList, structList...)
+	structList, err := getStructListFromAst(parsedFile)
+	if err != nil {
+		return "", err
 	}
 
-	newStructList, err := orderStructList(totalStructList)
+	newStructList, err := orderStructList(structList)
 	if err != nil {
 		return "", err
 	}

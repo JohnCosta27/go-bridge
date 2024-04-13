@@ -55,3 +55,31 @@ const MainStruct = object({
 		t.FailNow()
 	}
 }
+
+func TestDeepNestedDeps(t *testing.T) {
+	t.Skip()
+
+	valibotString, err := ParseV2("./test/test2/a.go")
+
+	valibotValidator := `
+import { object, string } from 'valibot';
+
+const NestedStruct = object({
+  Hello: string(),
+});
+
+const MainStruct = object({
+  World: NestedStruct,
+});
+`
+	if err != nil {
+		t.Log(err)
+		t.FailNow()
+	}
+
+	t.Log(valibotString)
+
+	if valibotString != valibotValidator {
+		t.FailNow()
+	}
+}
