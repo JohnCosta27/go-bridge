@@ -12,7 +12,7 @@ import (
 	"sort"
 )
 
-type NameType struct {
+type FieldInfo struct {
 	Name     string
 	Type     string
 	Embedded bool
@@ -21,7 +21,7 @@ type NameType struct {
 type Struct struct {
 	Name   string
 	Order  uint
-	Fields []NameType
+	Fields []FieldInfo
 }
 
 type StructList []Struct
@@ -185,61 +185,69 @@ func structsToValibot(structList StructList) (string, error) {
 // dependencies and getting structs to usable format.
 // ==================================================
 
-func structAstToList(allAstStructs NameToStructPos, astStructs []*ast.Field) ([]NameType, error) {
-	structFields := make([]NameType, 0)
+func getEmbeddedStructFields(allAstStructs NameToStructPos, structName string) ([]FieldInfo, error) {
+	astF, exists := allAstStructs[structName]
+	if !exists {
+		return []FieldInfo{}, errors.New("Chould not find embedded struct")
+	}
 
-	for _, l := range astStructs {
-		if len(l.Names) > 1 {
-			return structFields, errors.New("More than one name returned")
+	embeddedStructFields, err := structAstToList(allAstStructs, astF.Fields.List)
+	if err != nil {
+		return []FieldInfo{}, err
+	}
+
+	return embeddedStructFields, nil
+}
+
+func getSingleStructField(allAstStructs NameToStructPos, field *ast.Field) ([]FieldInfo, error) {
+	if len(field.Names) > 1 {
+		return make([]FieldInfo, 0), errors.New("More than one name returned")
+	}
+
+	fieldTypeIdent, ok := field.Type.(*ast.Ident)
+	if !ok {
+		return []FieldInfo{}, errors.New("Field type was more complicated")
+	}
+
+	fieldType := fieldTypeIdent.Name
+	if len(field.Names) == 0 {
+		nestedStructFields, err := getEmbeddedStructFields(allAstStructs, fieldType)
+		if err != nil {
+			return []FieldInfo{}, err
 		}
 
-		selectorExpr, ok := l.Type.(*ast.SelectorExpr)
-		if ok {
+		return nestedStructFields, nil
+	}
 
-			_, ok := selectorExpr.X.(*ast.Ident)
-			if !ok {
-				return structFields, errors.New("Not a field access?")
-			}
+	fieldName := field.Names[0].Name
+	return []FieldInfo{{Name: fieldName, Type: fieldType}}, nil
+}
 
-			//
-			// when we get this, we should load the package into memory
-			// (if it isn't already)
-			// and get the type definitions from there.
-			//
+func structAstToList(allAstStructs NameToStructPos, astStructs []*ast.Field) ([]FieldInfo, error) {
+	structFields := make([]FieldInfo, 0)
+
+	for _, field := range astStructs {
+		processedField, err := getSingleStructField(allAstStructs, field)
+		if err != nil {
+			return structFields, err
 		}
 
-		fieldTypeIdent, ok := l.Type.(*ast.Ident)
-		if !ok {
-			return structFields, errors.New("Field type was more complicated")
-		}
+		structFields = append(structFields, processedField...)
 
-		fieldType := fieldTypeIdent.Name
-
-		if len(l.Names) == 0 {
-			// Embedded
-			astF, exists := allAstStructs[fieldType]
-			if !exists {
-				return structFields, errors.New("Chould not find embedded struct")
-			}
-
-			embeddedStructFields, err := structAstToList(allAstStructs, astF.Fields.List)
-			if err != nil {
-				return structFields, err
-			}
-
-			structFields = append(structFields, embeddedStructFields...)
-
-			continue
-		}
-
-		fieldName := l.Names[0].Name
-
-		if !ok {
-			return structFields, errors.New("Field Type was more complicated, not supported yet")
-		}
-
-		nameType := NameType{Name: fieldName, Type: fieldType}
-		structFields = append(structFields, nameType)
+		// selectorExpr, ok := l.Type.(*ast.SelectorExpr)
+		// if ok {
+		//
+		// 	_, ok := selectorExpr.X.(*ast.Ident)
+		// 	if !ok {
+		// 		return structFields, errors.New("Not a field access?")
+		// 	}
+		//
+		// 	//
+		// 	// when we get this, we should load the package into memory
+		// 	// (if it isn't already)
+		// 	// and get the type definitions from there.
+		// 	//
+		// }
 	}
 
 	return structFields, nil
