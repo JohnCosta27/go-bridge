@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -10,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"sort"
 )
 
 type NameType struct {
@@ -20,10 +20,18 @@ type NameType struct {
 
 type Struct struct {
 	Name   string
+	Order  uint
 	Fields []NameType
 }
 
 type StructList []Struct
+
+type OrderedStructType struct {
+	*ast.StructType
+	Order uint
+}
+
+type NameToStructPos = map[string]OrderedStructType
 
 var NoJsType = errors.New("Cannot find corresponding JS type")
 
@@ -58,6 +66,16 @@ func getJsType(goType string) (string, error) {
  * much room for improvement.
  */
 func orderStructList(structList StructList) (StructList, error) {
+
+	//
+	// Because we used a map while getting our structs,
+	// We need to order the structs based on order they came to us.
+	// So we can get deterministic output.
+	//
+	sort.Slice(structList, func(i, j int) bool {
+		return structList[i].Order < structList[j].Order
+	})
+
 	nodeMap := make([]*Node, 0)
 
 	for _, s := range structList {
@@ -153,7 +171,7 @@ func structsToValibot(structList StructList) (string, error) {
 	return "\n" + importLine + valibotOutput, nil
 }
 
-func structAstToList(allAstStructs []StructWithName, astStructs []*ast.Field) ([]NameType, error) {
+func structAstToList(allAstStructs NameToStructPos, astStructs []*ast.Field) ([]NameType, error) {
 	structFields := make([]NameType, 0)
 
 	for _, l := range astStructs {
@@ -161,12 +179,10 @@ func structAstToList(allAstStructs []StructWithName, astStructs []*ast.Field) ([
 			return structFields, errors.New("More than one name returned")
 		}
 
-		fmt.Printf("AST TYPE: %T\n", l.Type)
-
 		selectorExpr, ok := l.Type.(*ast.SelectorExpr)
 		if ok {
 
-			ident, ok := selectorExpr.X.(*ast.Ident)
+			_, ok := selectorExpr.X.(*ast.Ident)
 			if !ok {
 				return structFields, errors.New("Not a field access?")
 			}
@@ -176,8 +192,6 @@ func structAstToList(allAstStructs []StructWithName, astStructs []*ast.Field) ([
 			// (if it isn't already)
 			// and get the type definitions from there.
 			//
-
-			fmt.Println(ident.Name, selectorExpr.Sel.Name)
 		}
 
 		fieldTypeIdent, ok := l.Type.(*ast.Ident)
@@ -189,17 +203,12 @@ func structAstToList(allAstStructs []StructWithName, astStructs []*ast.Field) ([
 
 		if len(l.Names) == 0 {
 			// Embedded
-			astFieldIndex := slices.IndexFunc(allAstStructs, func(ast StructWithName) bool {
-				return ast.Name == fieldType
-			})
-
-			if astFieldIndex == -1 {
-				return structFields, errors.New("Could not find embedded struct")
+			astF, exists := allAstStructs[fieldType]
+			if !exists {
+				return structFields, errors.New("Chould not find embedded struct")
 			}
 
-			embeddedStruct := allAstStructs[astFieldIndex]
-
-			embeddedStructFields, err := structAstToList(allAstStructs, embeddedStruct.Fields.List)
+			embeddedStructFields, err := structAstToList(allAstStructs, astF.Fields.List)
 			if err != nil {
 				return structFields, err
 			}
@@ -222,15 +231,11 @@ func structAstToList(allAstStructs []StructWithName, astStructs []*ast.Field) ([
 	return structFields, nil
 }
 
-type StructWithName struct {
-	*ast.StructType
-	Name string
-}
-
 func getStructListFromAst(file *ast.File) (StructList, error) {
 	structList := make(StructList, 0)
+	astStructs := make(NameToStructPos)
 
-	astStructs := make([]StructWithName, 0)
+	var order uint = 0
 
 	for _, dec := range file.Decls {
 		typeDec, ok := dec.(*ast.GenDecl)
@@ -251,18 +256,20 @@ func getStructListFromAst(file *ast.File) (StructList, error) {
 				continue
 			}
 
-			astStructs = append(astStructs, StructWithName{Name: typeSpec.Name.Name, StructType: structType})
+			astStructs[typeSpec.Name.Name] = OrderedStructType{StructType: structType, Order: order}
+
+			order++
 		}
 
 	}
 
-	for _, s := range astStructs {
+	for sName, s := range astStructs {
 		structFields, err := structAstToList(astStructs, s.Fields.List)
 		if err != nil {
 			return structList, err
 		}
 
-		structList = append(structList, Struct{Name: s.Name, Fields: structFields})
+		structList = append(structList, Struct{Name: sName, Fields: structFields, Order: s.Order})
 	}
 
 	return structList, nil
