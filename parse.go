@@ -60,6 +60,13 @@ func getJsType(goType string) (string, error) {
 	return "", NoJsType
 }
 
+// ==================================================
+// Backend Methods.
+//
+// Responsible for ordering output, and producing,
+// the resultant code.
+// ==================================================
+
 /*
  * Returned a topologically ordered list of structs,
  * This function is ugly and quite inefficient,
@@ -170,6 +177,13 @@ func structsToValibot(structList StructList) (string, error) {
 
 	return "\n" + importLine + valibotOutput, nil
 }
+
+// ==================================================
+// Frontend methods
+//
+// Responsible for parsing structs from AST, tracking
+// dependencies and getting structs to usable format.
+// ==================================================
 
 func structAstToList(allAstStructs NameToStructPos, astStructs []*ast.Field) ([]NameType, error) {
 	structFields := make([]NameType, 0)
