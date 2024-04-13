@@ -2,11 +2,11 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
 	"os"
+	"path/filepath"
 	"slices"
 	"sort"
 )
@@ -27,10 +27,15 @@ type StructList []Struct
 
 type OrderedStructType struct {
 	*ast.StructType
-	Order uint
+
+	Order    uint
+	FromFile string
 }
 
 type NameToStructPos = map[string]OrderedStructType
+
+// Map: ModuleName -> List of its structs
+type ModuleStructs = map[string]NameToStructPos
 
 var NoJsType = errors.New("Cannot find corresponding JS type")
 
@@ -184,6 +189,10 @@ func structsToValibot(structList StructList) (string, error) {
 // dependencies and getting structs to usable format.
 // ==================================================
 
+var moduleStructs ModuleStructs
+var mainDir string
+var projectPath string
+
 func getEmbeddedStructFields(allAstStructs *NameToStructPos, structName string) ([]FieldInfo, error) {
 	astF, exists := (*allAstStructs)[structName]
 	if !exists {
@@ -199,7 +208,10 @@ func getEmbeddedStructFields(allAstStructs *NameToStructPos, structName string) 
 }
 
 func getPackageStructField(allAstStructs *NameToStructPos, expr *ast.SelectorExpr) error {
-	fmt.Printf("%T\n", expr.X)
+	_, ok := expr.X.(*ast.Ident)
+	if !ok {
+		return errors.New("Cannot get package struct that is not identifier")
+	}
 
 	return nil
 }
@@ -257,9 +269,8 @@ func structAstToList(allAstStructs *NameToStructPos, astStructs []*ast.Field) ([
 	return structFields, nil
 }
 
-func getStructListFromAst(file *ast.File) (StructList, error) {
-	structList := make(StructList, 0)
-	astStructs := make(NameToStructPos)
+func getAllStructs(file *ast.File, fileName string) NameToStructPos {
+	allStructs := make(NameToStructPos)
 
 	var order uint = 0
 
@@ -282,51 +293,122 @@ func getStructListFromAst(file *ast.File) (StructList, error) {
 				continue
 			}
 
-			astStructs[typeSpec.Name.Name] = OrderedStructType{StructType: structType, Order: order}
+			allStructs[typeSpec.Name.Name] = OrderedStructType{
+				StructType: structType,
+				Order:      order,
+				FromFile:   fileName,
+			}
 
 			order++
 		}
 
 	}
 
-	for sName, s := range astStructs {
-		structFields, err := structAstToList(&astStructs, s.Fields.List)
+	return allStructs
+}
+
+func TestParse(goCode string) (string, error) {
+	astFile, err := parser.ParseFile(token.NewFileSet(), "", goCode, 0)
+	if err != nil {
+		return "", err
+	}
+
+	allStructs := getAllStructs(astFile, "")
+
+	outputStructs := make(StructList, 0)
+
+	for structName, s := range allStructs {
+		structFields, err := structAstToList(&allStructs, s.Fields.List)
 		if err != nil {
-			return structList, err
+			return "", err
 		}
 
-		structList = append(structList, Struct{Name: sName, Fields: structFields, Order: s.Order})
+		outputStructs = append(outputStructs, Struct{
+			Name:   structName,
+			Order:  s.Order,
+			Fields: structFields,
+		})
 	}
 
-	return structList, nil
+	newStructList, err := orderStructList(outputStructs)
+	if err != nil {
+		return "", err
+	}
+
+	valibotOutput, err := structsToValibot(newStructList)
+	if err != nil {
+		return "", err
+	}
+
+	return valibotOutput, nil
 }
 
-func ParseV2(entryFile string) (string, error) {
-	goContent, err := os.ReadFile(entryFile)
+func Parse(entryFile string, givenProjectPath string) (string, error) {
+	projectPath = givenProjectPath
+
+	moduleStructs = make(ModuleStructs)
+	mainDir = filepath.Dir(entryFile)
+
+	files, err := os.ReadDir(mainDir)
 	if err != nil {
 		return "", err
 	}
 
-	return Parse(string(goContent))
-}
+	packageName := ""
 
-/*
- * Takes Golang code as input,
- * And outputs the correct parsing code
- * for Valibot.
- */
-func Parse(goCode string) (string, error) {
-	parsedFile, err := parser.ParseFile(token.NewFileSet(), "", goCode, 0)
-	if err != nil {
-		return "", err
+	for _, file := range files {
+		fileName := file.Name()
+		if len(fileName) < 3 || fileName[len(fileName)-3:] != ".go" {
+			continue
+		}
+
+		fileContent, err := os.ReadFile(filepath.Join(mainDir, fileName))
+		if err != nil {
+			return "", err
+		}
+
+		astFile, err := parser.ParseFile(token.NewFileSet(), "", fileContent, 0)
+		if err != nil {
+			return "", err
+		}
+
+		if packageName == "" {
+			packageName = astFile.Name.String()
+			moduleStructs[packageName] = make(NameToStructPos)
+		}
+
+		if astFile.Name.String() != packageName {
+			return "", errors.New("Package name did not match")
+		}
+
+		mainPackageAst := getAllStructs(astFile, fileName)
+
+		currentModule, exists := moduleStructs[packageName]
+		if !exists {
+			return "", errors.New("Very weird, should always exist")
+		}
+
+		for k, v := range mainPackageAst {
+			currentModule[k] = v
+		}
 	}
 
-	structList, err := getStructListFromAst(parsedFile)
-	if err != nil {
-		return "", err
+	mainPackageStructs := moduleStructs[packageName]
+	outputStructs := make(StructList, 0)
+
+	for structName, s := range mainPackageStructs {
+		structFields, err := structAstToList(&mainPackageStructs, s.Fields.List)
+		if err != nil {
+			return "", err
+		}
+
+		outputStructs = append(outputStructs, Struct{
+			Name:   structName,
+			Fields: structFields,
+		})
 	}
 
-	newStructList, err := orderStructList(structList)
+	newStructList, err := orderStructList(outputStructs)
 	if err != nil {
 		return "", err
 	}

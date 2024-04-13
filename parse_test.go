@@ -19,7 +19,7 @@ const SimpleStruct = object({
 });
 `
 
-	outputParse, err := Parse(simpleStruct)
+	outputParse, err := TestParse(simpleStruct)
 	t.Log(outputParse)
 
 	if err != nil {
@@ -56,7 +56,7 @@ const NotAsSimple = object({
 });
 `
 
-	outputParse, err := Parse(simpleStruct)
+	outputParse, err := TestParse(simpleStruct)
 
 	t.Log(outputParse)
 
@@ -106,7 +106,7 @@ const SimpleButComplex = object({
 });
 `
 
-	outputParse, err := Parse(simpleStruct)
+	outputParse, err := TestParse(simpleStruct)
 
 	t.Log(outputParse)
 
@@ -146,7 +146,7 @@ const AlsoSimpleStruct = object({
 });
 `
 
-	outputParse, err := Parse(simpleStruct)
+	outputParse, err := TestParse(simpleStruct)
 	t.Log(outputParse)
 
 	if err != nil {
@@ -185,7 +185,7 @@ const MyStruct = object({
 });
 `
 
-	outputParse, err := Parse(simpleStruct)
+	outputParse, err := TestParse(simpleStruct)
 	t.Log(outputParse)
 
 	if err != nil {
@@ -240,7 +240,7 @@ const A = object({
 });
 `
 
-	outputParse, err := Parse(simpleStruct)
+	outputParse, err := TestParse(simpleStruct)
 	t.Log(outputParse)
 	t.Log(len(outputParse), len(valibotValidator))
 
@@ -280,7 +280,7 @@ const A = object({
 });
 `
 
-	outputParse, err := Parse(simpleStruct)
+	outputParse, err := TestParse(simpleStruct)
 	t.Log(outputParse)
 	t.Log(len(outputParse), len(valibotValidator))
 
@@ -350,7 +350,7 @@ const D = object({
 });
 `
 
-	outputParse, err := Parse(simpleStruct)
+	outputParse, err := TestParse(simpleStruct)
 	t.Log(outputParse)
 	t.Log(len(outputParse), len(valibotValidator))
 
