@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"go/parser"
 	"go/token"
+	"os"
 )
 
 func MainParse(entryFile string, givenProjectPath string) (string, error) {
@@ -58,4 +60,21 @@ func CodeParse(content string) (string, error) {
 	}
 
 	return valibotOutput, nil
+}
+
+func main() {
+	args := os.Args[1:]
+
+	if len(args) == 0 {
+		fmt.Println("Please type an entry file")
+		return
+	}
+
+	entryFile := args[0]
+	output, err := MainParse(entryFile, "johncosta.tech/struct-to-types")
+	if err != nil {
+		fmt.Fprintln(os.Stdout, err)
+	}
+
+	fmt.Print(output)
 }
