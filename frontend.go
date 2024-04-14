@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -42,6 +41,7 @@ type Parser struct {
 	entryPackage string
 
 	moduleStructs ModuleStructs
+	outputStructs []Struct
 }
 
 func (p *Parser) consumeFile(file *ast.File, fileName string) {
@@ -89,11 +89,13 @@ func (p *Parser) consumeFile(file *ast.File, fileName string) {
 	}
 }
 
-func (p *Parser) consumeDir(dirPath string) error {
+func (p *Parser) consumeDir(dirPath string) (string, error) {
 	files, err := os.ReadDir(dirPath)
 	if err != nil {
-		return err
+		return "", err
 	}
+
+	packageName := ""
 
 	for _, file := range files {
 		fileName := file.Name()
@@ -103,20 +105,20 @@ func (p *Parser) consumeDir(dirPath string) error {
 
 		fileContent, err := os.ReadFile(filepath.Join(dirPath, fileName))
 		if err != nil {
-			return err
+			return "", err
 		}
 
 		astFile, err := parser.ParseFile(token.NewFileSet(), "", fileContent, 0)
 		if err != nil {
-			return err
+			return "", err
 		}
 
-		p.entryPackage = astFile.Name.Name
+		packageName = astFile.Name.Name
 
 		p.consumeFile(astFile, fileName)
 	}
 
-	return nil
+	return packageName, nil
 }
 
 func (p *Parser) parseEmbeddedStructField(orderedStruct OrderedStructType, structName string) ([]FieldInfo, error) {
@@ -138,10 +140,10 @@ func (p *Parser) parseEmbeddedStructField(orderedStruct OrderedStructType, struc
 	return embeddedStructFields, nil
 }
 
-func (p *Parser) parseDependencyField(orderedStruct OrderedStructType, expr *ast.SelectorExpr) ([]FieldInfo, error) {
-	ident, ok := expr.X.(*ast.Ident)
+func (p *Parser) parseDependencyField(orderedStruct OrderedStructType, expr *ast.SelectorExpr) (string, error) {
+	_, ok := expr.X.(*ast.Ident)
 	if !ok {
-		return []FieldInfo{}, errors.New("Could not parse dependency field")
+		return "", errors.New("Could not parse dependency field")
 	}
 
 	depImport := orderedStruct.File.Imports[0].Path.Value
@@ -149,24 +151,7 @@ func (p *Parser) parseDependencyField(orderedStruct OrderedStructType, expr *ast
 
 	p.consumeDir(depImport)
 
-	depPackage, exists := p.moduleStructs[ident.Name]
-	if !exists {
-		return []FieldInfo{}, errors.New("Did not find nested struct")
-	}
-
-	depStruct, exists := depPackage[expr.Sel.Name]
-	if !exists {
-		return []FieldInfo{}, errors.New("Did not find nested struct")
-	}
-
-	fields, err := p.parseStruct(depStruct)
-	if err != nil {
-		return []FieldInfo{}, err
-	}
-
-	fmt.Println(fields)
-
-	return fields, nil
+	return expr.Sel.Name, nil
 }
 
 func (p *Parser) parseStructField(orderedStruct OrderedStructType, field *ast.Field) ([]FieldInfo, error) {
@@ -176,12 +161,12 @@ func (p *Parser) parseStructField(orderedStruct OrderedStructType, field *ast.Fi
 
 	selectorExpr, ok := field.Type.(*ast.SelectorExpr)
 	if ok {
-		fields, err := p.parseDependencyField(orderedStruct, selectorExpr)
+		structName, err := p.parseDependencyField(orderedStruct, selectorExpr)
 		if err != nil {
 			return []FieldInfo{}, err
 		}
 
-		return fields, nil
+		return []FieldInfo{{Name: field.Names[0].Name, Type: structName}}, nil
 	}
 
 	fieldTypeIdent, ok := field.Type.(*ast.Ident)
@@ -219,28 +204,29 @@ func (p *Parser) parseStruct(orderedStruct OrderedStructType) ([]FieldInfo, erro
 }
 
 func (p *Parser) Parse() ([]Struct, error) {
-	mainPackage, exists := p.moduleStructs[p.entryPackage]
-	if !exists {
-		return []Struct{}, errors.New("Could not find any packages in entry packages")
-	}
+	processedStructs := make([]Struct, 0)
 
-	processedStructs := make([]Struct, len(mainPackage))
-	i := 0
+	for len(p.moduleStructs) > 0 {
 
-	for structName, s := range mainPackage {
-		fields, err := p.parseStruct(s)
-		if err != nil {
-			return []Struct{}, err
+		for packageName, packageStructs := range p.moduleStructs {
+			for structName, s := range packageStructs {
+				fields, err := p.parseStruct(s)
+				if err != nil {
+					return []Struct{}, err
+				}
+
+				parsedStruct := Struct{
+					Name:   structName,
+					Order:  s.Order,
+					Fields: fields,
+				}
+
+				processedStructs = append(processedStructs, parsedStruct)
+			}
+
+			delete(p.moduleStructs, packageName)
 		}
 
-		parsedStruct := Struct{
-			Name:   structName,
-			Order:  s.Order,
-			Fields: fields,
-		}
-
-		processedStructs[i] = parsedStruct
-		i++
 	}
 
 	return processedStructs, nil
@@ -253,10 +239,12 @@ func ParserFactory(entryFile string, givenProjectPath string) (Parser, error) {
 	}
 
 	mainDir := filepath.Dir(entryFile)
-	err := parser.consumeDir(mainDir)
+	mainPackage, err := parser.consumeDir(mainDir)
 	if err != nil {
 		return Parser{}, err
 	}
+
+	parser.entryPackage = mainPackage
 
 	return parser, nil
 }

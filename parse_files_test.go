@@ -56,8 +56,6 @@ const MainStruct = object({
 }
 
 func TestDeepNestedDeps(t *testing.T) {
-	t.Skip()
-
 	valibotString, err := MainParse("./test/test2/a.go", "johncosta.tech/struct-to-types")
 
 	valibotValidator := `
