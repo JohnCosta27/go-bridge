@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -129,7 +130,7 @@ func (p *Parser) parseEmbeddedStructField(orderedStruct OrderedStructType, struc
 		return []FieldInfo{}, errors.New("Chould not find embedded struct")
 	}
 
-	embeddedStructFields, err := p.parseStructs(astF)
+	embeddedStructFields, err := p.parseStruct(astF)
 	if err != nil {
 		return []FieldInfo{}, err
 	}
@@ -137,22 +138,50 @@ func (p *Parser) parseEmbeddedStructField(orderedStruct OrderedStructType, struc
 	return embeddedStructFields, nil
 }
 
+func (p *Parser) parseDependencyField(orderedStruct OrderedStructType, expr *ast.SelectorExpr) ([]FieldInfo, error) {
+	ident, ok := expr.X.(*ast.Ident)
+	if !ok {
+		return []FieldInfo{}, errors.New("Could not parse dependency field")
+	}
+
+	depImport := orderedStruct.File.Imports[0].Path.Value
+	depImport = depImport[len(p.projectPath)+2 : len(depImport)-1]
+
+	p.consumeDir(depImport)
+
+	depPackage, exists := p.moduleStructs[ident.Name]
+	if !exists {
+		return []FieldInfo{}, errors.New("Did not find nested struct")
+	}
+
+	depStruct, exists := depPackage[expr.Sel.Name]
+	if !exists {
+		return []FieldInfo{}, errors.New("Did not find nested struct")
+	}
+
+	fields, err := p.parseStruct(depStruct)
+	if err != nil {
+		return []FieldInfo{}, err
+	}
+
+	fmt.Println(fields)
+
+	return fields, nil
+}
+
 func (p *Parser) parseStructField(orderedStruct OrderedStructType, field *ast.Field) ([]FieldInfo, error) {
 	if len(field.Names) > 1 {
 		return []FieldInfo{}, errors.New("More than one name returned")
 	}
 
-	_, ok := field.Type.(*ast.SelectorExpr)
+	selectorExpr, ok := field.Type.(*ast.SelectorExpr)
 	if ok {
-		//
-		// when we get this, we should load the package into memory
-		// (if it isn't already)
-		// and get the type definitions from there.
-		//
+		fields, err := p.parseDependencyField(orderedStruct, selectorExpr)
+		if err != nil {
+			return []FieldInfo{}, err
+		}
 
-		// getPackageStructField(allAstStructs, s, selectorExpr)
-
-		return []FieldInfo{}, errors.New("Not implemented yet.")
+		return fields, nil
 	}
 
 	fieldTypeIdent, ok := field.Type.(*ast.Ident)
@@ -174,7 +203,7 @@ func (p *Parser) parseStructField(orderedStruct OrderedStructType, field *ast.Fi
 	return []FieldInfo{{Name: fieldName, Type: fieldType}}, nil
 }
 
-func (p *Parser) parseStructs(orderedStruct OrderedStructType) ([]FieldInfo, error) {
+func (p *Parser) parseStruct(orderedStruct OrderedStructType) ([]FieldInfo, error) {
 	structFields := make([]FieldInfo, 0)
 
 	for _, field := range orderedStruct.Fields.List {
@@ -199,7 +228,7 @@ func (p *Parser) Parse() ([]Struct, error) {
 	i := 0
 
 	for structName, s := range mainPackage {
-		fields, err := p.parseStructs(s)
+		fields, err := p.parseStruct(s)
 		if err != nil {
 			return []Struct{}, err
 		}
