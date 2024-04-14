@@ -44,7 +44,7 @@ type Parser struct {
 	outputStructs []Struct
 }
 
-func (p *Parser) consumeFile(file *ast.File, fileName string) {
+func (p *Parser) consumeFile(file *ast.File, fileName string) string {
 	allStructs := make(NameToStructPos)
 	packageName := file.Name.Name
 
@@ -81,12 +81,14 @@ func (p *Parser) consumeFile(file *ast.File, fileName string) {
 	existingModuleStructs, exists := p.moduleStructs[packageName]
 	if !exists {
 		p.moduleStructs[packageName] = allStructs
-		return
+		return file.Name.Name
 	}
 
 	for k, v := range allStructs {
 		existingModuleStructs[k] = v
 	}
+
+	return file.Name.Name
 }
 
 func (p *Parser) consumeDir(dirPath string) (string, error) {
@@ -141,17 +143,38 @@ func (p *Parser) parseEmbeddedStructField(orderedStruct OrderedStructType, struc
 }
 
 func (p *Parser) parseDependencyField(orderedStruct OrderedStructType, expr *ast.SelectorExpr) (string, error) {
-	_, ok := expr.X.(*ast.Ident)
+	packageName, ok := expr.X.(*ast.Ident)
 	if !ok {
 		return "", errors.New("Could not parse dependency field")
 	}
+
+	structName := expr.Sel.Name
 
 	depImport := orderedStruct.File.Imports[0].Path.Value
 	depImport = depImport[len(p.projectPath)+2 : len(depImport)-1]
 
 	p.consumeDir(depImport)
 
-	return expr.Sel.Name, nil
+	packageStructs, exists := p.moduleStructs[packageName.Name]
+	if !exists {
+		return "", errors.New("Could not find package structs after consuming dir")
+	}
+
+	//
+	// Because we did `consumeDir`, as we don't know the exact file.
+	// We should clean up, because we don't want all other structs that we
+	// might not need present in our processing map, as they will make it
+	// into the final output.
+	//
+	// This however, raises conserns over efficiency. We are deleting a dir
+	// and perhaps re-reading it in the future. We can optimise this a tone.
+	//
+
+	cleanPackageStructs := make(NameToStructPos)
+	cleanPackageStructs[structName] = packageStructs[structName]
+	p.moduleStructs[packageName.Name] = cleanPackageStructs
+
+	return structName, nil
 }
 
 func (p *Parser) parseStructField(orderedStruct OrderedStructType, field *ast.Field) ([]FieldInfo, error) {
@@ -233,18 +256,18 @@ func (p *Parser) Parse() ([]Struct, error) {
 }
 
 func ParserFactory(entryFile string, givenProjectPath string) (Parser, error) {
-	parser := Parser{
+	p := Parser{
 		projectPath:   givenProjectPath,
 		moduleStructs: make(ModuleStructs),
 	}
 
-	mainDir := filepath.Dir(entryFile)
-	mainPackage, err := parser.consumeDir(mainDir)
+	path := filepath.Dir(entryFile)
+
+	mainPackage, err := p.consumeDir(path)
 	if err != nil {
 		return Parser{}, err
 	}
 
-	parser.entryPackage = mainPackage
-
-	return parser, nil
+	p.entryPackage = mainPackage
+	return p, nil
 }

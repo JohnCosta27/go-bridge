@@ -3,7 +3,6 @@ package main
 import (
 	"go/parser"
 	"go/token"
-	"path/filepath"
 )
 
 func MainParse(entryFile string, givenProjectPath string) (string, error) {
@@ -11,9 +10,6 @@ func MainParse(entryFile string, givenProjectPath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
-	entryDir := filepath.Dir(entryFile)
-	parser.consumeDir(entryDir)
 
 	structs, err := parser.Parse()
 	if err != nil {
