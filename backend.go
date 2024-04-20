@@ -110,65 +110,77 @@ func orderStructList(structList StructList) (StructList, error) {
 	return orderedList, nil
 }
 
+func maybeAdd(validators map[string]uint, counter *uint, field string) {
+	_, exists := validators[field]
+	if exists {
+		return
+	}
+
+	validators[field] = *counter
+	*counter++
+}
+
+func getSingleField(validators map[string]uint, counter *uint, field FieldInfo) (string, error) {
+	jsType, err := getJsType(field.Type)
+	localValibotOutput := ""
+
+	if err == NoJsType {
+		// Here, we must have a nested struct.
+		localValibotOutput += "  " + field.Name + ": "
+		if field.Array {
+			maybeAdd(validators, counter, "array")
+			localValibotOutput += "array(" + field.Type + "),\n"
+			return localValibotOutput, nil
+		}
+
+		localValibotOutput += field.Type + ",\n"
+
+		return localValibotOutput, nil
+	}
+
+	maybeAdd(validators, counter, jsType)
+	localValibotOutput += "  " + field.Name + ": "
+
+	if field.Array {
+		maybeAdd(validators, counter, "array")
+		localValibotOutput += "array(" + jsType + "()),\n"
+		return localValibotOutput, nil
+	}
+
+	localValibotOutput += jsType + "(),\n"
+	return localValibotOutput, nil
+}
+
 func structsToValibot(structList StructList) (string, error) {
 	valibotOutput := ""
 
-	importedValidators := make([]string, 0)
-	importedValidators = append(importedValidators, "object")
+	importedValidators := make(map[string]uint)
+	importedValidators["object"] = 0
+	var counter uint = 1
 
 	for _, s := range structList {
 		localValidbotOutput := "const " + s.Name + " = object({\n"
 
 		for _, fieldType := range s.Fields {
-			jsType, err := getJsType(fieldType.Type)
-
-			if err == NoJsType {
-				// Here, we must have a nested struct.
-				localValidbotOutput += "  " + fieldType.Name + ": "
-
-				if fieldType.Array {
-
-					exist := slices.Index(importedValidators, "array") != -1
-					if !exist {
-						importedValidators = append(importedValidators, "array")
-					}
-
-					localValidbotOutput += "array(" + fieldType.Type + "),\n"
-					continue
-				}
-
-				localValidbotOutput += fieldType.Type + ",\n"
-
-				continue
+			fieldOutput, err := getSingleField(importedValidators, &counter, fieldType)
+			if err != nil {
+				return "", err
 			}
 
-			exist := slices.Index(importedValidators, jsType) != -1
-			if !exist {
-				importedValidators = append(importedValidators, jsType)
-			}
-
-			localValidbotOutput += "  " + fieldType.Name + ": "
-
-			if fieldType.Array {
-				// TODO: Refactor this logic. Probably into a map.
-				exist := slices.Index(importedValidators, "array") != -1
-				if !exist {
-					importedValidators = append(importedValidators, "array")
-				}
-
-				localValidbotOutput += "array(" + jsType + "()),\n"
-				continue
-			}
-
-			localValidbotOutput += jsType + "(),\n"
+			localValidbotOutput += fieldOutput
 		}
 
 		localValidbotOutput += "});"
 		valibotOutput += "\n" + localValidbotOutput + "\n"
 	}
 
+	validatorsArr := make([]string, len(importedValidators))
+	for k, v := range importedValidators {
+		validatorsArr[v] = k
+	}
+
 	importLine := ""
-	for _, validator := range importedValidators {
+	for _, validator := range validatorsArr {
 		importLine += validator + ", "
 	}
 
