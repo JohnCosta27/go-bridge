@@ -124,7 +124,20 @@ func structsToValibot(structList StructList) (string, error) {
 
 			if err == NoJsType {
 				// Here, we must have a nested struct.
-				localValidbotOutput += "  " + fieldType.Name + ": " + fieldType.Type + ",\n"
+				localValidbotOutput += "  " + fieldType.Name + ": "
+
+				if fieldType.Array {
+
+					exist := slices.Index(importedValidators, "array") != -1
+					if !exist {
+						importedValidators = append(importedValidators, "array")
+					}
+
+					localValidbotOutput += "array(" + fieldType.Type + "),\n"
+					continue
+				}
+
+				localValidbotOutput += fieldType.Type + ",\n"
 
 				continue
 			}

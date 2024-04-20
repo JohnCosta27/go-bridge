@@ -397,3 +397,42 @@ const WithArray = object({
 		t.FailNow()
 	}
 }
+
+func TestStructArrayTypes(t *testing.T) {
+	simpleStruct := `
+package types
+
+type ForArray struct {
+  SomeField string
+}
+
+type WithArray struct {
+	Hello []ForArray
+}
+  `
+
+	valibotValidator := `
+import { object, string, array } from 'valibot';
+
+const ForArray = object({
+  SomeField: string(),
+});
+
+const WithArray = object({
+  Hello: array(ForArray),
+});
+`
+
+	outputParse, err := CodeParse(simpleStruct)
+	t.Log(outputParse)
+
+	if err != nil {
+		t.Log("Error is not null")
+		t.Log(err)
+		t.FailNow()
+	}
+
+	if outputParse != valibotValidator {
+		t.FailNow()
+	}
+}
