@@ -10,9 +10,15 @@ import (
 )
 
 type FieldInfo struct {
-	Name     string
-	Type     string
+	Name string
+	Type string
+
+	// Only one can be true at a time.
+	// However, this isn't enforced on type level.
+	// Consider adding an interface type and do type-checking.
+
 	Embedded bool
+	Array    bool
 }
 
 type Struct struct {
@@ -182,6 +188,8 @@ func (p *Parser) parseStructField(orderedStruct OrderedStructType, field *ast.Fi
 		return []FieldInfo{}, errors.New("More than one name returned")
 	}
 
+	fieldName := field.Names[0].Name
+
 	selectorExpr, ok := field.Type.(*ast.SelectorExpr)
 	if ok {
 		structName, err := p.parseDependencyField(orderedStruct, selectorExpr)
@@ -189,7 +197,21 @@ func (p *Parser) parseStructField(orderedStruct OrderedStructType, field *ast.Fi
 			return []FieldInfo{}, err
 		}
 
-		return []FieldInfo{{Name: field.Names[0].Name, Type: structName}}, nil
+		return []FieldInfo{{Name: fieldName, Type: structName}}, nil
+	}
+
+	arrayType, ok := field.Type.(*ast.ArrayType)
+	if ok {
+
+		// We could then go into the branch above (SelectorExpr), because we could have
+		// []model.Hello, so reduces complexity.
+
+		arrayIdent, ok := arrayType.Elt.(*ast.Ident)
+		if !ok {
+			return []FieldInfo{}, errors.New("Array type was more complicated. TODO")
+		}
+
+		return []FieldInfo{{Name: fieldName, Type: arrayIdent.Name, Array: true}}, nil
 	}
 
 	fieldTypeIdent, ok := field.Type.(*ast.Ident)
@@ -207,7 +229,6 @@ func (p *Parser) parseStructField(orderedStruct OrderedStructType, field *ast.Fi
 		return nestedStructFields, nil
 	}
 
-	fieldName := field.Names[0].Name
 	return []FieldInfo{{Name: fieldName, Type: fieldType}}, nil
 }
 

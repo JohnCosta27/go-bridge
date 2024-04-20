@@ -364,3 +364,36 @@ const D = object({
 		t.FailNow()
 	}
 }
+
+func TestArrayTypes(t *testing.T) {
+	simpleStruct := `
+package types
+
+type WithArray struct {
+	Hello []string
+  World []float32
+}
+  `
+
+	valibotValidator := `
+import { object, string, array, number } from 'valibot';
+
+const WithArray = object({
+  Hello: array(string()),
+  World: array(number()),
+});
+`
+
+	outputParse, err := CodeParse(simpleStruct)
+	t.Log(outputParse)
+
+	if err != nil {
+		t.Log("Error is not null")
+		t.Log(err)
+		t.FailNow()
+	}
+
+	if outputParse != valibotValidator {
+		t.FailNow()
+	}
+}

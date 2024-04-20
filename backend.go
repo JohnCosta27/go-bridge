@@ -133,8 +133,21 @@ func structsToValibot(structList StructList) (string, error) {
 			if !exist {
 				importedValidators = append(importedValidators, jsType)
 			}
-			localValidbotOutput += "  " + fieldType.Name + ": " + jsType + "(),\n"
 
+			localValidbotOutput += "  " + fieldType.Name + ": "
+
+			if fieldType.Array {
+				// TODO: Refactor this logic. Probably into a map.
+				exist := slices.Index(importedValidators, "array") != -1
+				if !exist {
+					importedValidators = append(importedValidators, "array")
+				}
+
+				localValidbotOutput += "array(" + jsType + "()),\n"
+				continue
+			}
+
+			localValidbotOutput += jsType + "(),\n"
 		}
 
 		localValidbotOutput += "});"
