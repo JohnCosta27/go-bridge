@@ -188,8 +188,6 @@ func (p *Parser) parseStructField(orderedStruct OrderedStructType, field *ast.Fi
 		return []FieldInfo{}, errors.New("More than one name returned")
 	}
 
-	fieldName := field.Names[0].Name
-
 	selectorExpr, ok := field.Type.(*ast.SelectorExpr)
 	if ok {
 		structName, err := p.parseDependencyField(orderedStruct, selectorExpr)
@@ -197,6 +195,7 @@ func (p *Parser) parseStructField(orderedStruct OrderedStructType, field *ast.Fi
 			return []FieldInfo{}, err
 		}
 
+		fieldName := field.Names[0].Name
 		return []FieldInfo{{Name: fieldName, Type: structName}}, nil
 	}
 
@@ -211,6 +210,7 @@ func (p *Parser) parseStructField(orderedStruct OrderedStructType, field *ast.Fi
 			return []FieldInfo{}, errors.New("Array type was more complicated. TODO")
 		}
 
+		fieldName := field.Names[0].Name
 		return []FieldInfo{{Name: fieldName, Type: arrayIdent.Name, Array: true}}, nil
 	}
 
@@ -229,6 +229,7 @@ func (p *Parser) parseStructField(orderedStruct OrderedStructType, field *ast.Fi
 		return nestedStructFields, nil
 	}
 
+	fieldName := field.Names[0].Name
 	return []FieldInfo{{Name: fieldName, Type: fieldType}}, nil
 }
 
