@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -148,10 +149,10 @@ func (p *Parser) parseEmbeddedStructField(orderedStruct OrderedStructType, struc
 	return embeddedStructFields, nil
 }
 
-func (p *Parser) parseDependencyField(orderedStruct OrderedStructType, expr *ast.SelectorExpr) (string, error) {
+func (p *Parser) parseDependencyField(orderedStruct OrderedStructType, fieldName string, expr *ast.SelectorExpr) ([]FieldInfo, error) {
 	packageName, ok := expr.X.(*ast.Ident)
 	if !ok {
-		return "", errors.New("Could not parse dependency field")
+		return []FieldInfo{}, errors.New("Could not parse dependency field")
 	}
 
 	structName := expr.Sel.Name
@@ -163,7 +164,7 @@ func (p *Parser) parseDependencyField(orderedStruct OrderedStructType, expr *ast
 
 	packageStructs, exists := p.moduleStructs[packageName.Name]
 	if !exists {
-		return "", errors.New("Could not find package structs after consuming dir")
+		return []FieldInfo{}, errors.New("Could not find package structs after consuming dir")
 	}
 
 	//
@@ -180,7 +181,26 @@ func (p *Parser) parseDependencyField(orderedStruct OrderedStructType, expr *ast
 	cleanPackageStructs[structName] = packageStructs[structName]
 	p.moduleStructs[packageName.Name] = cleanPackageStructs
 
-	return structName, nil
+	return []FieldInfo{{Name: fieldName, Type: structName}}, nil
+}
+
+func (p *Parser) parseStructFieldType(orderedStruct OrderedStructType, fieldName string, field ast.Expr) ([]FieldInfo, error) {
+	switch t := field.(type) {
+	case *ast.Ident:
+		return []FieldInfo{{Name: fieldName, Type: t.Name}}, nil
+	case *ast.SelectorExpr:
+		return p.parseDependencyField(orderedStruct, fieldName, t)
+	case *ast.ArrayType:
+		field, err := p.parseStructFieldType(orderedStruct, fieldName, t.Elt)
+		if err != nil {
+			return field, err
+		}
+
+		field[0].Array = true
+		return field, err
+	default:
+		return []FieldInfo{}, errors.New(fmt.Sprintf("Currently, we don't support %T types.", field))
+	}
 }
 
 func (p *Parser) parseStructField(orderedStruct OrderedStructType, field *ast.Field) ([]FieldInfo, error) {
@@ -188,49 +208,16 @@ func (p *Parser) parseStructField(orderedStruct OrderedStructType, field *ast.Fi
 		return []FieldInfo{}, errors.New("More than one name returned")
 	}
 
-	selectorExpr, ok := field.Type.(*ast.SelectorExpr)
-	if ok {
-		structName, err := p.parseDependencyField(orderedStruct, selectorExpr)
-		if err != nil {
-			return []FieldInfo{}, err
-		}
-
-		fieldName := field.Names[0].Name
-		return []FieldInfo{{Name: fieldName, Type: structName}}, nil
-	}
-
-	arrayType, ok := field.Type.(*ast.ArrayType)
-	if ok {
-
-		// We could then go into the branch above (SelectorExpr), because we could have
-		// []model.Hello, so reduces complexity.
-
-		arrayIdent, ok := arrayType.Elt.(*ast.Ident)
-		if !ok {
-			return []FieldInfo{}, errors.New("Array type was more complicated. TODO")
-		}
-
-		fieldName := field.Names[0].Name
-		return []FieldInfo{{Name: fieldName, Type: arrayIdent.Name, Array: true}}, nil
-	}
-
-	fieldTypeIdent, ok := field.Type.(*ast.Ident)
-	if !ok {
-		return []FieldInfo{}, errors.New("Field type was more complicated")
-	}
-
-	fieldType := fieldTypeIdent.Name
 	if len(field.Names) == 0 {
-		nestedStructFields, err := p.parseEmbeddedStructField(orderedStruct, fieldType)
-		if err != nil {
-			return []FieldInfo{}, err
+		ident, ok := field.Type.(*ast.Ident)
+		if !ok {
+			return []FieldInfo{}, errors.New("Do not currently support non-ident types on embedded")
 		}
 
-		return nestedStructFields, nil
+		return p.parseEmbeddedStructField(orderedStruct, ident.Name)
 	}
 
-	fieldName := field.Names[0].Name
-	return []FieldInfo{{Name: fieldName, Type: fieldType}}, nil
+	return p.parseStructFieldType(orderedStruct, field.Names[0].Name, field.Type)
 }
 
 func (p *Parser) parseStruct(orderedStruct OrderedStructType) ([]FieldInfo, error) {

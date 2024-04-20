@@ -59,3 +59,34 @@ const MainStruct = object({
 		t.FailNow()
 	}
 }
+
+func TestNestedStructArrayTypes(t *testing.T) {
+	valibotString, err := MainParse("./test/test3/a.go", "johncosta.tech/struct-to-types")
+
+	valibotValidator := `
+import { object, string, number, array } from 'valibot';
+
+const IAmNested = object({
+  Some: string(),
+  Field: number(),
+  AnotherOneForLuck: array(string()),
+});
+
+const TestingStruct = object({
+  NestedArray: array(IAmNested),
+  SomeOtherField: number(),
+});
+`
+
+	t.Log(valibotString)
+
+	if err != nil {
+		t.Log("Error is not null")
+		t.Log(err)
+		t.FailNow()
+	}
+
+	if valibotString != valibotValidator {
+		t.FailNow()
+	}
+}
