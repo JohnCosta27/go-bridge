@@ -20,6 +20,10 @@ type FieldInfo struct {
 
 	Embedded bool
 	Array    bool
+
+	Map   bool
+	Key   string
+	Value string
 }
 
 type Struct struct {
@@ -184,6 +188,20 @@ func (p *Parser) parseDependencyField(orderedStruct OrderedStructType, fieldName
 	return []FieldInfo{{Name: fieldName, Type: structName}}, nil
 }
 
+func (p *Parser) parseMapField(_ OrderedStructType, fieldName string, mapAst *ast.MapType) ([]FieldInfo, error) {
+	keyIdent, ok := mapAst.Key.(*ast.Ident)
+	if !ok {
+		return []FieldInfo{}, errors.New(fmt.Sprintf("Do you support %T as key of map type.", mapAst.Key))
+	}
+
+	valueIdent, ok := mapAst.Value.(*ast.Ident)
+	if !ok {
+		return []FieldInfo{}, errors.New(fmt.Sprintf("Do you support %T as key of map type.", mapAst.Key))
+	}
+
+	return []FieldInfo{{Map: true, Name: fieldName, Key: keyIdent.Name, Type: keyIdent.Name, Value: valueIdent.Name}}, nil
+}
+
 func (p *Parser) parseStructFieldType(orderedStruct OrderedStructType, fieldName string, field ast.Expr) ([]FieldInfo, error) {
 	switch t := field.(type) {
 	case *ast.Ident:
@@ -198,6 +216,8 @@ func (p *Parser) parseStructFieldType(orderedStruct OrderedStructType, fieldName
 
 		field[0].Array = true
 		return field, err
+	case *ast.MapType:
+		return p.parseMapField(orderedStruct, fieldName, t)
 	default:
 		return []FieldInfo{}, errors.New(fmt.Sprintf("Currently, we don't support %T types.", field))
 	}

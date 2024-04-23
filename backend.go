@@ -147,6 +147,20 @@ func getSingleField(validators map[string]uint, counter *uint, field FieldInfo) 
 		return localValibotOutput, nil
 	}
 
+	if field.Map {
+		maybeAdd(validators, counter, "record")
+
+		valueType, err := getJsType(field.Value)
+		if err != nil {
+			return "", errors.New("Currently do not support map types for structs")
+		}
+
+		maybeAdd(validators, counter, valueType)
+
+		localValibotOutput += "record(" + valueType + "()),\n"
+		return localValibotOutput, nil
+	}
+
 	localValibotOutput += jsType + "(),\n"
 	return localValibotOutput, nil
 }
