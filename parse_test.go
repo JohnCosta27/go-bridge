@@ -437,7 +437,7 @@ const WithArray = object({
 	}
 }
 
-func TestMapTypes(t *testing.T) {
+func TestMapTypesSimple(t *testing.T) {
 	simpleStruct := `
 package types
 
@@ -451,6 +451,45 @@ import { object, string, record } from 'valibot';
 
 const ForMap = object({
   Hello: record(string()),
+});
+`
+
+	outputParse, err := CodeParse(simpleStruct)
+	t.Log(outputParse)
+
+	if err != nil {
+		t.Log("Error is not null")
+		t.Log(err)
+		t.FailNow()
+	}
+
+	if outputParse != valibotValidator {
+		t.FailNow()
+	}
+}
+
+func TestMapTypesToStruct(t *testing.T) {
+	simpleStruct := `
+package types
+
+type A struct {
+  Field int
+}
+
+type ForMap struct {
+  Hello map[string]A
+}
+`
+
+	valibotValidator := `
+import { object, number, record } from 'valibot';
+
+const A = object({
+  Field: number(),
+});
+
+const ForMap = object({
+  Hello: record(A),
 });
 `
 

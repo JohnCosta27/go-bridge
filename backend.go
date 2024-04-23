@@ -120,44 +120,48 @@ func maybeAdd(validators map[string]uint, counter *uint, field string) {
 	*counter++
 }
 
+func getJsTypeOrType(t string) (bool, string) {
+	jsType, err := getJsType(t)
+	if err != nil {
+		return true, t
+	}
+
+	return false, jsType
+}
+
+func appendedType(t string) string {
+	isJsType, t := getJsTypeOrType(t)
+	if isJsType {
+		return t + "),\n"
+	}
+
+	return t + "()),\n"
+}
+
 func getSingleField(validators map[string]uint, counter *uint, field FieldInfo) (string, error) {
 	jsType, err := getJsType(field.Type)
 	localValibotOutput := ""
 
-	if err == NoJsType {
-		// Here, we must have a nested struct.
-		localValibotOutput += "  " + field.Name + ": "
-		if field.Array {
-			maybeAdd(validators, counter, "array")
-			localValibotOutput += "array(" + field.Type + "),\n"
-			return localValibotOutput, nil
-		}
+	if err == nil {
+		maybeAdd(validators, counter, jsType)
+	}
 
-		localValibotOutput += field.Type + ",\n"
-
+	if err == NoJsType && !(field.Map || field.Array) {
+		localValibotOutput += "  " + field.Name + ": " + field.Type + ",\n"
 		return localValibotOutput, nil
 	}
 
-	maybeAdd(validators, counter, jsType)
 	localValibotOutput += "  " + field.Name + ": "
 
 	if field.Array {
 		maybeAdd(validators, counter, "array")
-		localValibotOutput += "array(" + jsType + "()),\n"
+		localValibotOutput += "array(" + appendedType(field.Type)
 		return localValibotOutput, nil
 	}
 
 	if field.Map {
 		maybeAdd(validators, counter, "record")
-
-		valueType, err := getJsType(field.Value)
-		if err != nil {
-			return "", errors.New("Currently do not support map types for structs")
-		}
-
-		maybeAdd(validators, counter, valueType)
-
-		localValibotOutput += "record(" + valueType + "()),\n"
+		localValibotOutput += "record(" + appendedType(field.Type)
 		return localValibotOutput, nil
 	}
 

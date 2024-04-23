@@ -199,7 +199,7 @@ func (p *Parser) parseMapField(_ OrderedStructType, fieldName string, mapAst *as
 		return []FieldInfo{}, errors.New(fmt.Sprintf("Do you support %T as key of map type.", mapAst.Key))
 	}
 
-	return []FieldInfo{{Map: true, Name: fieldName, Key: keyIdent.Name, Type: keyIdent.Name, Value: valueIdent.Name}}, nil
+	return []FieldInfo{{Map: true, Name: fieldName, Key: keyIdent.Name, Type: valueIdent.Name, Value: valueIdent.Name}}, nil
 }
 
 func (p *Parser) parseStructFieldType(orderedStruct OrderedStructType, fieldName string, field ast.Expr) ([]FieldInfo, error) {
