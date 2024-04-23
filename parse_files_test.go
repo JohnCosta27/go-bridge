@@ -90,3 +90,31 @@ const TestingStruct = object({
 		t.FailNow()
 	}
 }
+
+func TestFileMapTypes(t *testing.T) {
+	valibotString, err := MainParse("./test/test4/a.go", "johncosta.tech/struct-to-types")
+
+	valibotValidator := `
+import { object, string, record } from 'valibot';
+
+const IAmNested = object({
+  Hello: string(),
+});
+
+const WithMap = object({
+  Map: record(IAmNested),
+});
+`
+
+	t.Log(valibotString)
+
+	if err != nil {
+		t.Log("Error is not null")
+		t.Log(err)
+		t.FailNow()
+	}
+
+	if valibotString != valibotValidator {
+		t.FailNow()
+	}
+}

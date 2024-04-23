@@ -21,9 +21,8 @@ type FieldInfo struct {
 	Embedded bool
 	Array    bool
 
-	Map   bool
-	Key   string
-	Value string
+	Map bool
+	Key string
 }
 
 type Struct struct {
@@ -188,18 +187,36 @@ func (p *Parser) parseDependencyField(orderedStruct OrderedStructType, fieldName
 	return []FieldInfo{{Name: fieldName, Type: structName}}, nil
 }
 
-func (p *Parser) parseMapField(_ OrderedStructType, fieldName string, mapAst *ast.MapType) ([]FieldInfo, error) {
+func (p *Parser) parseMapField(orderedStruct OrderedStructType, fieldName string, mapAst *ast.MapType) ([]FieldInfo, error) {
 	keyIdent, ok := mapAst.Key.(*ast.Ident)
 	if !ok {
-		return []FieldInfo{}, errors.New(fmt.Sprintf("Do you support %T as key of map type.", mapAst.Key))
+		return []FieldInfo{}, errors.New(fmt.Sprintf("Only support %T as key of map type.", mapAst.Key))
 	}
 
 	valueIdent, ok := mapAst.Value.(*ast.Ident)
 	if !ok {
-		return []FieldInfo{}, errors.New(fmt.Sprintf("Do you support %T as key of map type.", mapAst.Key))
+
+		valueType, err := p.parseStructFieldType(orderedStruct, fieldName, mapAst.Value)
+		if err != nil {
+			return []FieldInfo{}, err
+		}
+
+		mapField := FieldInfo{
+			Map:  true,
+			Name: fieldName,
+			Key:  keyIdent.Name,
+		}
+
+		if len(valueType) != 1 {
+			return []FieldInfo{}, errors.New("Expected only 1 field returned")
+		}
+
+		mapField.Type = valueType[0].Type
+
+		return []FieldInfo{mapField}, nil
 	}
 
-	return []FieldInfo{{Map: true, Name: fieldName, Key: keyIdent.Name, Type: valueIdent.Name, Value: valueIdent.Name}}, nil
+	return []FieldInfo{{Map: true, Name: fieldName, Key: keyIdent.Name, Type: valueIdent.Name}}, nil
 }
 
 func (p *Parser) parseStructFieldType(orderedStruct OrderedStructType, fieldName string, field ast.Expr) ([]FieldInfo, error) {
