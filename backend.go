@@ -40,6 +40,14 @@ func getJsType(goType string) (string, error) {
 // the resultant code.
 // ==================================================
 
+func recGetLastType(field FieldInfo) string {
+	if field.Value == nil {
+		return field.Type
+	}
+
+	return recGetLastType(*field.Value)
+}
+
 /*
  * Returned a topologically ordered list of structs,
  * This function is ugly and quite inefficient,
@@ -67,14 +75,16 @@ func orderStructList(structList StructList) (StructList, error) {
 
 	for i, node := range nodeMap {
 		for _, field := range structList[i].Fields {
-			_, err := getJsType(field.Type)
+			lastType := recGetLastType(field)
+
+			_, err := getJsType(lastType)
 
 			if err != NoJsType {
 				continue
 			}
 
 			nodeIndex := slices.IndexFunc(nodeMap, func(n *Node) bool {
-				return n.Name == field.Type
+				return n.Name == lastType
 			})
 
 			node.Edges = append(node.Edges, nodeMap[nodeIndex])
@@ -139,7 +149,7 @@ func appendedType(t string) string {
 }
 
 func getSingleField(validators map[string]uint, counter *uint, field FieldInfo) (string, error) {
-	jsType, err := getJsType(field.Type)
+	jsType, err := getJsType(recGetLastType(field))
 	localValibotOutput := ""
 
 	if err == nil {
@@ -161,7 +171,18 @@ func getSingleField(validators map[string]uint, counter *uint, field FieldInfo) 
 
 	if field.Map {
 		maybeAdd(validators, counter, "record")
-		localValibotOutput += "record(" + appendedType(field.Type)
+
+		localValibotOutput += "record("
+
+		// TODO: Refactor me! I am here for 1 test to pass!
+		if field.Value != nil && field.Value.Array {
+			maybeAdd(validators, counter, "array")
+			hackType := appendedType(field.Value.Type)
+			localValibotOutput += "array(" + hackType[0:len(hackType)-2] + "),\n"
+		} else {
+			localValibotOutput += appendedType(field.Type)
+		}
+
 		return localValibotOutput, nil
 	}
 

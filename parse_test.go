@@ -506,3 +506,34 @@ const ForMap = object({
 		t.FailNow()
 	}
 }
+
+func TestMapTypesArraySimple(t *testing.T) {
+	simpleStruct := `
+package types
+
+type ForMap struct {
+  Hello map[string][]string
+}
+`
+
+	valibotValidator := `
+import { object, string, record, array } from 'valibot';
+
+const ForMap = object({
+  Hello: record(array(string())),
+});
+`
+
+	outputParse, err := CodeParse(simpleStruct)
+	t.Log(outputParse)
+
+	if err != nil {
+		t.Log("Error is not null")
+		t.Log(err)
+		t.FailNow()
+	}
+
+	if outputParse != valibotValidator {
+		t.FailNow()
+	}
+}

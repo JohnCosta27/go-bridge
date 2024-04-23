@@ -20,9 +20,10 @@ type FieldInfo struct {
 
 	Embedded bool
 	Array    bool
+	Map      bool
+	Key      string
 
-	Map bool
-	Key string
+	Value *FieldInfo
 }
 
 type Struct struct {
@@ -211,7 +212,7 @@ func (p *Parser) parseMapField(orderedStruct OrderedStructType, fieldName string
 			return []FieldInfo{}, errors.New("Expected only 1 field returned")
 		}
 
-		mapField.Type = valueType[0].Type
+		mapField.Value = &valueType[0]
 
 		return []FieldInfo{mapField}, nil
 	}
