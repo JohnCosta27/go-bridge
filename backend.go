@@ -40,12 +40,13 @@ func getJsType(goType string) (string, error) {
 // the resultant code.
 // ==================================================
 
-func recGetLastType(field FieldInfo) string {
-	if field.Value == nil {
-		return field.Type
-	}
-
-	return recGetLastType(*field.Value)
+func recGetLastType(_ StructField) string {
+	return "TODO"
+	// if field.Value == nil {
+	// 	return field.Type
+	// }
+	//
+	// return recGetLastType(*field.Value)
 }
 
 /*
@@ -148,7 +149,7 @@ func appendedType(t string) string {
 	return t + "()),\n"
 }
 
-func getSingleField(validators map[string]uint, counter *uint, field FieldInfo) (string, error) {
+func getSingleField(validators map[string]uint, counter *uint, field StructField) (string, error) {
 	jsType, err := getJsType(recGetLastType(field))
 	localValibotOutput := ""
 
@@ -156,35 +157,42 @@ func getSingleField(validators map[string]uint, counter *uint, field FieldInfo) 
 		maybeAdd(validators, counter, jsType)
 	}
 
-	if err == NoJsType && !(field.Map || field.Array) {
-		localValibotOutput += "  " + field.Name + ": " + field.Type + ",\n"
-		return localValibotOutput, nil
-	}
+	localValibotOutput += "  " + field.Name() + ": "
 
-	localValibotOutput += "  " + field.Name + ": "
-
-	if field.Array {
-		maybeAdd(validators, counter, "array")
-		localValibotOutput += "array(" + appendedType(field.Type)
-		return localValibotOutput, nil
-	}
-
-	if field.Map {
-		maybeAdd(validators, counter, "record")
-
-		localValibotOutput += "record("
-
-		// TODO: Refactor me! I am here for 1 test to pass!
-		if field.Value != nil && field.Value.Array {
-			maybeAdd(validators, counter, "array")
-			hackType := appendedType(field.Value.Type)
-			localValibotOutput += "array(" + hackType[0:len(hackType)-2] + "),\n"
-		} else {
-			localValibotOutput += appendedType(field.Type)
+	basicField, ok := field.(BasicStructField)
+	if ok {
+		if err == NoJsType {
+			localValibotOutput += basicField.Type + ",\n"
+			return localValibotOutput, nil
 		}
 
+		localValibotOutput += basicField.Type + "(),\n"
 		return localValibotOutput, nil
 	}
+
+	_, ok = field.(ArrayStructField)
+	if ok {
+		maybeAdd(validators, counter, "array")
+		// localValibotOutput += "array(" + appendedType(arrayField.Type)
+		return localValibotOutput, nil
+	}
+
+	// if field.Map {
+	// 	maybeAdd(validators, counter, "record")
+	//
+	// 	localValibotOutput += "record("
+	//
+	// 	// TODO: Refactor me! I am here for 1 test to pass!
+	// 	if field.Value != nil && field.Value.Array {
+	// 		maybeAdd(validators, counter, "array")
+	// 		hackType := appendedType(field.Value.Type)
+	// 		localValibotOutput += "array(" + hackType[0:len(hackType)-2] + "),\n"
+	// 	} else {
+	// 		localValibotOutput += appendedType(field.Type)
+	// 	}
+	//
+	// 	return localValibotOutput, nil
+	// }
 
 	localValibotOutput += jsType + "(),\n"
 	return localValibotOutput, nil
