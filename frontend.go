@@ -129,10 +129,10 @@ func (p *Parser) parseEmbeddedStructField(orderedStruct OrderedStructType, struc
 	return embeddedStructFields, nil
 }
 
-func (p *Parser) parseDependencyField(orderedStruct OrderedStructType, fieldName string, expr *ast.SelectorExpr) ([]StructField, error) {
+func (p *Parser) parseDependencyField(orderedStruct OrderedStructType, fieldName string, expr *ast.SelectorExpr) (StructField, error) {
 	packageName, ok := expr.X.(*ast.Ident)
 	if !ok {
-		return []StructField{}, errors.New("Could not parse dependency field")
+		return BasicStructField{}, errors.New("Could not parse dependency field")
 	}
 
 	structName := expr.Sel.Name
@@ -144,7 +144,7 @@ func (p *Parser) parseDependencyField(orderedStruct OrderedStructType, fieldName
 
 	packageStructs, exists := p.moduleStructs[packageName.Name]
 	if !exists {
-		return []StructField{}, errors.New("Could not find package structs after consuming dir")
+		return BasicStructField{}, errors.New("Could not find package structs after consuming dir")
 	}
 
 	//
@@ -161,13 +161,13 @@ func (p *Parser) parseDependencyField(orderedStruct OrderedStructType, fieldName
 	cleanPackageStructs[structName] = packageStructs[structName]
 	p.moduleStructs[packageName.Name] = cleanPackageStructs
 
-	return []StructField{BasicStructField{name: fieldName, Type: structName}}, nil
+	return BasicStructField{name: fieldName, Type: structName}, nil
 }
 
-func (p *Parser) parseMapField(orderedStruct OrderedStructType, fieldName string, mapAst *ast.MapType) ([]StructField, error) {
+func (p *Parser) parseMapField(orderedStruct OrderedStructType, fieldName string, mapAst *ast.MapType) (StructField, error) {
 	keyIdent, ok := mapAst.Key.(*ast.Ident)
 	if !ok {
-		return []StructField{}, errors.New(fmt.Sprintf("Only support %T as key of map type.", mapAst.Key))
+		return BasicStructField{}, errors.New(fmt.Sprintf("Only support %T as key of map type.", mapAst.Key))
 	}
 
 	valueIdent, ok := mapAst.Value.(*ast.Ident)
@@ -175,30 +175,23 @@ func (p *Parser) parseMapField(orderedStruct OrderedStructType, fieldName string
 
 		valueType, err := p.parseStructFieldType(orderedStruct, fieldName, mapAst.Value)
 		if err != nil {
-			return []StructField{}, err
+			return BasicStructField{}, err
 		}
 
-		mapField := MapStructField{
+		return MapStructField{
 			name:    fieldName,
 			KeyType: keyIdent.Name,
-		}
-
-		if len(valueType) != 1 {
-			return []StructField{}, errors.New("Expected only 1 field returned")
-		}
-
-		mapField.Value = valueType[0]
-
-		return []StructField{mapField}, nil
+			Value:   valueType,
+		}, nil
 	}
 
-	return []StructField{MapStructField{name: fieldName, KeyType: keyIdent.Name, Value: BasicStructField{name: fieldName, Type: valueIdent.Name}}}, nil
+	return MapStructField{name: fieldName, KeyType: keyIdent.Name, Value: BasicStructField{name: fieldName, Type: valueIdent.Name}}, nil
 }
 
-func (p *Parser) parseStructFieldType(orderedStruct OrderedStructType, fieldName string, field ast.Expr) ([]StructField, error) {
+func (p *Parser) parseStructFieldType(orderedStruct OrderedStructType, fieldName string, field ast.Expr) (StructField, error) {
 	switch t := field.(type) {
 	case *ast.Ident:
-		return []StructField{BasicStructField{name: fieldName, Type: t.Name}}, nil
+		return BasicStructField{name: fieldName, Type: t.Name}, nil
 	case *ast.SelectorExpr:
 		return p.parseDependencyField(orderedStruct, fieldName, t)
 	case *ast.ArrayType:
@@ -207,11 +200,21 @@ func (p *Parser) parseStructFieldType(orderedStruct OrderedStructType, fieldName
 			return field, err
 		}
 
-		return []StructField{ArrayStructField{name: field[0].Name(), Type: field[0]}}, err
+		return ArrayStructField{name: field.Name(), Type: field}, err
 	case *ast.MapType:
 		return p.parseMapField(orderedStruct, fieldName, t)
+	case *ast.StructType:
+		fields, err := p.parseStruct(OrderedStructType{
+			StructType: t,
+		})
+
+		if err != nil {
+			return BasicStructField{}, err
+		}
+
+		return AnonStructField{name: fieldName, Fields: fields}, nil
 	default:
-		return []StructField{}, errors.New(fmt.Sprintf("Currently, we don't support %T types.", field))
+		return BasicStructField{}, errors.New(fmt.Sprintf("Currently, we don't support %T types.", field))
 	}
 }
 
@@ -229,7 +232,12 @@ func (p *Parser) parseStructField(orderedStruct OrderedStructType, field *ast.Fi
 		return p.parseEmbeddedStructField(orderedStruct, ident.Name)
 	}
 
-	return p.parseStructFieldType(orderedStruct, field.Names[0].Name, field.Type)
+	structFields, err := p.parseStructFieldType(orderedStruct, field.Names[0].Name, field.Type)
+	if err != nil {
+		return []StructField{}, err
+	}
+
+	return []StructField{structFields}, nil
 }
 
 func (p *Parser) parseStruct(orderedStruct OrderedStructType) ([]StructField, error) {
