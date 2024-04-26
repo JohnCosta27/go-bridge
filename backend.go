@@ -135,6 +135,7 @@ func orderStructList(structList StructList) (StructList, error) {
 	return orderedList, nil
 }
 
+// TODO: you are literally a set mate (with insert order)
 func maybeAdd(validators map[string]uint, counter *uint, field string) {
 	_, exists := validators[field]
 	if exists {

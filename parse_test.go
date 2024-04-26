@@ -537,3 +537,44 @@ const ForMap = object({
 		t.FailNow()
 	}
 }
+
+func TestBasicParseChaos(t *testing.T) {
+	simpleStruct := `
+package types
+
+type ForMap struct {
+  Hello map[string][]string
+}
+
+type BigType struct {
+  A []map[string]ForMap
+  B map[string]map[string][][][]map[string]ForMap
+}
+`
+
+	valibotValidator := `
+import { object, record, array, string } from 'valibot';
+
+const ForMap = object({
+  Hello: record(array(string())),
+});
+
+const BigType = object({
+  A: array(record(ForMap)),
+  B: record(record(array(array(array(record(ForMap)))))),
+});
+`
+
+	outputParse, err := CodeParse(simpleStruct)
+	t.Log(outputParse)
+
+	if err != nil {
+		t.Log("Error is not null")
+		t.Log(err)
+		t.FailNow()
+	}
+
+	if outputParse != valibotValidator {
+		t.FailNow()
+	}
+}
