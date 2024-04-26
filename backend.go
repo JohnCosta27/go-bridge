@@ -20,6 +20,16 @@ func getJsType(goType string) (string, error) {
 		fallthrough
 	case "int64":
 		fallthrough
+	case "uint":
+		fallthrough
+	case "uint8":
+		fallthrough
+	case "uint16":
+		fallthrough
+	case "uint32":
+		fallthrough
+	case "uint64":
+		fallthrough
 	case "float32":
 		fallthrough
 	case "float64":
@@ -147,6 +157,45 @@ func appendedType(t string) string {
 	}
 
 	return t + "()),\n"
+}
+
+func getStructFieldType(validators map[string]uint, counter *uint, field StructField) (string, error) {
+	basicField, ok := field.(BasicStructField)
+
+	if ok {
+		jsType, err := getJsType(basicField.Type)
+
+		if err == NoJsType {
+			return basicField.Type, nil
+		}
+
+		maybeAdd(validators, counter, jsType)
+		return jsType + "()", nil
+	}
+
+	arrayField, ok := field.(ArrayStructField)
+	if ok {
+		maybeAdd(validators, counter, "array")
+		recValue, err := getStructFieldType(validators, counter, arrayField.Type)
+		if err != nil {
+			return "", err
+		}
+
+		return "array(" + recValue + ")", nil
+	}
+
+	mapField, ok := field.(MapStructField)
+	if ok {
+		maybeAdd(validators, counter, "record")
+		recValue, err := getStructFieldType(validators, counter, mapField.Value)
+		if err != nil {
+			return "", err
+		}
+
+		return "record(" + recValue + ")", nil
+	}
+
+	return "", errors.New("not implemented")
 }
 
 func getSingleField(validators map[string]uint, counter *uint, field StructField) (string, error) {
