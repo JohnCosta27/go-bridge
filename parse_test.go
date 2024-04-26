@@ -578,3 +578,38 @@ const BigType = object({
 		t.FailNow()
 	}
 }
+
+func TestBasicParseAnonStruct(t *testing.T) {
+	simpleStruct := `
+package types
+
+type A struct {
+  Hello struct {
+    World string
+  }
+}
+`
+
+	valibotValidator := `
+import { object, string } from 'valibot';
+
+const A = object({
+  Hello: object({
+    World: string(),
+  }),
+});
+`
+
+	outputParse, err := CodeParse(simpleStruct)
+	t.Log(outputParse)
+
+	if err != nil {
+		t.Log("Error is not null")
+		t.Log(err)
+		t.FailNow()
+	}
+
+	if outputParse != valibotValidator {
+		t.FailNow()
+	}
+}

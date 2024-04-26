@@ -24,6 +24,12 @@ type MapStructField struct {
 	name string
 }
 
+type AnonStructField struct {
+	Fields []StructField
+
+	name string
+}
+
 func (s BasicStructField) Name() string {
 	return s.name
 }
@@ -33,6 +39,10 @@ func (s ArrayStructField) Name() string {
 }
 
 func (s MapStructField) Name() string {
+	return s.name
+}
+
+func (s AnonStructField) Name() string {
 	return s.name
 }
 

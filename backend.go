@@ -43,6 +43,16 @@ func getJsType(goType string) (string, error) {
 	return "", NoJsType
 }
 
+func getSpaces(indent uint) string {
+	output := ""
+	var i uint = 0
+	for i = 0; i < indent; i++ {
+		output += "  "
+	}
+
+	return output
+}
+
 // ==================================================
 // Backend Methods.
 //
@@ -166,7 +176,7 @@ func appendedType(t string) string {
 	return t + "()),\n"
 }
 
-func getStructFieldType(validators map[string]uint, counter *uint, field StructField) (string, error) {
+func getStructFieldType(validators map[string]uint, counter *uint, field StructField, indent uint) (string, error) {
 	switch t := field.(type) {
 	case BasicStructField:
 		jsType, err := getJsType(t.Type)
@@ -179,7 +189,7 @@ func getStructFieldType(validators map[string]uint, counter *uint, field StructF
 		return jsType + "()", nil
 	case ArrayStructField:
 		maybeAdd(validators, counter, "array")
-		recValue, err := getStructFieldType(validators, counter, t.Type)
+		recValue, err := getStructFieldType(validators, counter, t.Type, indent+1)
 		if err != nil {
 			return "", err
 		}
@@ -187,24 +197,36 @@ func getStructFieldType(validators map[string]uint, counter *uint, field StructF
 		return "array(" + recValue + ")", nil
 	case MapStructField:
 		maybeAdd(validators, counter, "record")
-		recValue, err := getStructFieldType(validators, counter, t.Value)
+		recValue, err := getStructFieldType(validators, counter, t.Value, indent+1)
 		if err != nil {
 			return "", err
 		}
 
 		return "record(" + recValue + ")", nil
+	case AnonStructField:
+		output := "object({\n"
+		for _, v := range t.Fields {
+			fieldOutput, err := getSingleField(validators, counter, v, indent+1)
+			if err != nil {
+				return "", err
+			}
+
+			output += fieldOutput
+		}
+		output += getSpaces(indent+1) + "})"
+		return output, nil
 	default:
 		return "", errors.New("not implemented")
 	}
 }
 
-func getSingleField(validators map[string]uint, counter *uint, field StructField) (string, error) {
-	typeValue, err := getStructFieldType(validators, counter, field)
+func getSingleField(validators map[string]uint, counter *uint, field StructField, indent uint) (string, error) {
+	typeValue, err := getStructFieldType(validators, counter, field, indent)
 	if err != nil {
 		return "", err
 	}
 
-	return "  " + field.Name() + ": " + typeValue + ",\n", nil
+	return getSpaces(indent+1) + field.Name() + ": " + typeValue + ",\n", nil
 }
 
 func structsToValibot(structList StructList) (string, error) {
@@ -218,7 +240,7 @@ func structsToValibot(structList StructList) (string, error) {
 		localValidbotOutput := "const " + s.Name + " = object({\n"
 
 		for _, fieldType := range s.Fields {
-			fieldOutput, err := getSingleField(importedValidators, &counter, fieldType)
+			fieldOutput, err := getSingleField(importedValidators, &counter, fieldType, 0)
 			if err != nil {
 				return "", err
 			}

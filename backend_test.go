@@ -8,7 +8,7 @@ func TestBackendSimpleType(t *testing.T) {
 
 	basicField := BasicStructField{name: "Name", Type: "string"}
 
-	output, err := getStructFieldType(validators, &counter, basicField)
+	output, err := getStructFieldType(validators, &counter, basicField, 0)
 	expected := "string()"
 
 	t.Log(output)
@@ -44,7 +44,7 @@ func TestBackendStructType(t *testing.T) {
 
 	basicField := BasicStructField{name: "Name", Type: "AnotherStruct"}
 
-	output, err := getStructFieldType(validators, &counter, basicField)
+	output, err := getStructFieldType(validators, &counter, basicField, 0)
 	expected := "AnotherStruct"
 
 	t.Log(output)
@@ -71,7 +71,7 @@ func TestBackendArrayType(t *testing.T) {
 
 	arrayField := ArrayStructField{name: "Name", Type: BasicStructField{name: "Name", Type: "int64"}}
 
-	output, err := getStructFieldType(validators, &counter, arrayField)
+	output, err := getStructFieldType(validators, &counter, arrayField, 0)
 	expected := "array(number())"
 
 	t.Log(output)
@@ -116,7 +116,7 @@ func TestBackendArrayStructType(t *testing.T) {
 
 	arrayField := ArrayStructField{name: "Name", Type: BasicStructField{name: "Name", Type: "SomeStruct"}}
 
-	output, err := getStructFieldType(validators, &counter, arrayField)
+	output, err := getStructFieldType(validators, &counter, arrayField, 0)
 	expected := "array(SomeStruct)"
 
 	t.Log(output)
@@ -152,7 +152,7 @@ func TestBackendArrayArrayType(t *testing.T) {
 
 	arrayField := ArrayStructField{name: "Name", Type: ArrayStructField{name: "Name", Type: BasicStructField{name: "Name", Type: "bool"}}}
 
-	output, err := getStructFieldType(validators, &counter, arrayField)
+	output, err := getStructFieldType(validators, &counter, arrayField, 0)
 	expected := "array(array(boolean()))"
 
 	t.Log(output)
@@ -197,7 +197,7 @@ func TestBackendMapType(t *testing.T) {
 
 	arrayField := MapStructField{name: "Name", KeyType: "string", Value: BasicStructField{name: "Name", Type: "uint"}}
 
-	output, err := getStructFieldType(validators, &counter, arrayField)
+	output, err := getStructFieldType(validators, &counter, arrayField, 0)
 	expected := "record(number())"
 
 	t.Log(output)
@@ -242,7 +242,7 @@ func TestBackendMapArrayStructType(t *testing.T) {
 
 	arrayField := MapStructField{name: "Name", KeyType: "string", Value: ArrayStructField{name: "Name", Type: BasicStructField{name: "Name", Type: "string"}}}
 
-	output, err := getStructFieldType(validators, &counter, arrayField)
+	output, err := getStructFieldType(validators, &counter, arrayField, 0)
 	expected := "record(array(string()))"
 
 	t.Log(output)
@@ -319,7 +319,7 @@ func TestBackendChaos(t *testing.T) {
 		},
 	}
 
-	output, err := getStructFieldType(validators, &counter, arrayField)
+	output, err := getStructFieldType(validators, &counter, arrayField, 0)
 	expected := "array(record(array(record(record(array(string()))))))"
 
 	t.Log(output)
