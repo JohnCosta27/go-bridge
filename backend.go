@@ -58,6 +58,8 @@ func recGetLastType(field StructField) string {
 		return recGetLastType(t.Value)
 	case ArrayStructField:
 		return recGetLastType(t.Type)
+	case AnonStructField:
+		return recGetLastType(t.Fields[0])
 	default:
 		panic("Switch should be exhaustive")
 	}
@@ -165,42 +167,35 @@ func appendedType(t string) string {
 }
 
 func getStructFieldType(validators map[string]uint, counter *uint, field StructField) (string, error) {
-	basicField, ok := field.(BasicStructField)
-
-	if ok {
-		jsType, err := getJsType(basicField.Type)
+	switch t := field.(type) {
+	case BasicStructField:
+		jsType, err := getJsType(t.Type)
 
 		if err == NoJsType {
-			return basicField.Type, nil
+			return t.Type, nil
 		}
 
 		maybeAdd(validators, counter, jsType)
 		return jsType + "()", nil
-	}
-
-	arrayField, ok := field.(ArrayStructField)
-	if ok {
+	case ArrayStructField:
 		maybeAdd(validators, counter, "array")
-		recValue, err := getStructFieldType(validators, counter, arrayField.Type)
+		recValue, err := getStructFieldType(validators, counter, t.Type)
 		if err != nil {
 			return "", err
 		}
 
 		return "array(" + recValue + ")", nil
-	}
-
-	mapField, ok := field.(MapStructField)
-	if ok {
+	case MapStructField:
 		maybeAdd(validators, counter, "record")
-		recValue, err := getStructFieldType(validators, counter, mapField.Value)
+		recValue, err := getStructFieldType(validators, counter, t.Value)
 		if err != nil {
 			return "", err
 		}
 
 		return "record(" + recValue + ")", nil
+	default:
+		return "", errors.New("not implemented")
 	}
-
-	return "", errors.New("not implemented")
 }
 
 func getSingleField(validators map[string]uint, counter *uint, field StructField) (string, error) {
