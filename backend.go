@@ -50,13 +50,17 @@ func getJsType(goType string) (string, error) {
 // the resultant code.
 // ==================================================
 
-func recGetLastType(_ StructField) string {
-	return "TODO"
-	// if field.Value == nil {
-	// 	return field.Type
-	// }
-	//
-	// return recGetLastType(*field.Value)
+func recGetLastType(field StructField) string {
+	switch t := field.(type) {
+	case BasicStructField:
+		return t.Type
+	case MapStructField:
+		return recGetLastType(t.Value)
+	case ArrayStructField:
+		return recGetLastType(t.Type)
+	default:
+		panic("Switch should be exhaustive")
+	}
 }
 
 /*
@@ -199,52 +203,12 @@ func getStructFieldType(validators map[string]uint, counter *uint, field StructF
 }
 
 func getSingleField(validators map[string]uint, counter *uint, field StructField) (string, error) {
-	jsType, err := getJsType(recGetLastType(field))
-	localValibotOutput := ""
-
-	if err == nil {
-		maybeAdd(validators, counter, jsType)
+	typeValue, err := getStructFieldType(validators, counter, field)
+	if err != nil {
+		return "", err
 	}
 
-	localValibotOutput += "  " + field.Name() + ": "
-
-	basicField, ok := field.(BasicStructField)
-	if ok {
-		if err == NoJsType {
-			localValibotOutput += basicField.Type + ",\n"
-			return localValibotOutput, nil
-		}
-
-		localValibotOutput += basicField.Type + "(),\n"
-		return localValibotOutput, nil
-	}
-
-	_, ok = field.(ArrayStructField)
-	if ok {
-		maybeAdd(validators, counter, "array")
-		// localValibotOutput += "array(" + appendedType(arrayField.Type)
-		return localValibotOutput, nil
-	}
-
-	// if field.Map {
-	// 	maybeAdd(validators, counter, "record")
-	//
-	// 	localValibotOutput += "record("
-	//
-	// 	// TODO: Refactor me! I am here for 1 test to pass!
-	// 	if field.Value != nil && field.Value.Array {
-	// 		maybeAdd(validators, counter, "array")
-	// 		hackType := appendedType(field.Value.Type)
-	// 		localValibotOutput += "array(" + hackType[0:len(hackType)-2] + "),\n"
-	// 	} else {
-	// 		localValibotOutput += appendedType(field.Type)
-	// 	}
-	//
-	// 	return localValibotOutput, nil
-	// }
-
-	localValibotOutput += jsType + "(),\n"
-	return localValibotOutput, nil
+	return "  " + field.Name() + ": " + typeValue + ",\n", nil
 }
 
 func structsToValibot(structList StructList) (string, error) {

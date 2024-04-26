@@ -2,7 +2,7 @@ package main
 
 import "testing"
 
-func TestSimpleStruct1(t *testing.T) {
+func TestBasicParseSimpleStruct1(t *testing.T) {
 	simpleStruct := `
 package types
 
@@ -33,7 +33,7 @@ const SimpleStruct = object({
 	}
 }
 
-func TestSimpleStruct2(t *testing.T) {
+func TestBasicParseSimpleStruct2(t *testing.T) {
 	simpleStruct := `
 package types
 
@@ -71,7 +71,7 @@ const NotAsSimple = object({
 	}
 }
 
-func TestSimpleStruct3(t *testing.T) {
+func TestBasicParseSimpleStruct3(t *testing.T) {
 	simpleStruct := `
 package types
 
@@ -121,7 +121,7 @@ const SimpleButComplex = object({
 	}
 }
 
-func TestMultipleSimpleStructs(t *testing.T) {
+func TestBasicParseMultipleSimpleStructs(t *testing.T) {
 	simpleStruct := `
 package types
 
@@ -160,7 +160,7 @@ const AlsoSimpleStruct = object({
 	}
 }
 
-func TestNestedStruct(t *testing.T) {
+func TestBasicParseNestedStruct(t *testing.T) {
 	simpleStruct := `
 package types
 
@@ -199,7 +199,7 @@ const MyStruct = object({
 	}
 }
 
-func TestMultipleNestedStructs(t *testing.T) {
+func TestBasicParseMultipleNestedStructs(t *testing.T) {
 	simpleStruct := `
 package types
 
@@ -255,7 +255,7 @@ const A = object({
 	}
 }
 
-func TestEmbeddedStruct(t *testing.T) {
+func TestBasicParseEmbeddedStruct(t *testing.T) {
 	simpleStruct := `
 package types
 
@@ -295,7 +295,7 @@ const A = object({
 	}
 }
 
-func TestEmbeddedStructComplex(t *testing.T) {
+func TestBasicParseEmbeddedStructComplex(t *testing.T) {
 	simpleStruct := `
 package types
 
@@ -365,7 +365,7 @@ const D = object({
 	}
 }
 
-func TestArrayTypes(t *testing.T) {
+func TestBasicParseArrayTypes(t *testing.T) {
 	simpleStruct := `
 package types
 
@@ -376,7 +376,7 @@ type WithArray struct {
   `
 
 	valibotValidator := `
-import { object, string, array, number } from 'valibot';
+import { object, array, string, number } from 'valibot';
 
 const WithArray = object({
   Hello: array(string()),
@@ -398,7 +398,7 @@ const WithArray = object({
 	}
 }
 
-func TestStructArrayTypes(t *testing.T) {
+func TestBasicParseStructArrayTypes(t *testing.T) {
 	simpleStruct := `
 package types
 
@@ -437,7 +437,7 @@ const WithArray = object({
 	}
 }
 
-func TestMapTypesSimple(t *testing.T) {
+func TestBasicParseMapTypesSimple(t *testing.T) {
 	simpleStruct := `
 package types
 
@@ -447,7 +447,7 @@ type ForMap struct {
 `
 
 	valibotValidator := `
-import { object, string, record } from 'valibot';
+import { object, record, string } from 'valibot';
 
 const ForMap = object({
   Hello: record(string()),
@@ -468,7 +468,7 @@ const ForMap = object({
 	}
 }
 
-func TestMapTypesToStruct(t *testing.T) {
+func TestBasicParseMapTypesToStruct(t *testing.T) {
 	simpleStruct := `
 package types
 
@@ -507,7 +507,7 @@ const ForMap = object({
 	}
 }
 
-func TestMapTypesArraySimple(t *testing.T) {
+func TestBasicParseMapTypesArraySimple(t *testing.T) {
 	simpleStruct := `
 package types
 
@@ -517,7 +517,7 @@ type ForMap struct {
 `
 
 	valibotValidator := `
-import { object, string, record, array } from 'valibot';
+import { object, record, array, string } from 'valibot';
 
 const ForMap = object({
   Hello: record(array(string())),
