@@ -579,7 +579,7 @@ const BigType = object({
 	}
 }
 
-func TestBasicParseAnonStruct(t *testing.T) {
+func TestBasicParseAnonStruct1(t *testing.T) {
 	simpleStruct := `
 package types
 
@@ -596,6 +596,55 @@ import { object, string } from 'valibot';
 const A = object({
   Hello: object({
     World: string(),
+  }),
+});
+`
+
+	outputParse, err := CodeParse(simpleStruct)
+	t.Log(outputParse)
+
+	if err != nil {
+		t.Log("Error is not null")
+		t.Log(err)
+		t.FailNow()
+	}
+
+	if outputParse != valibotValidator {
+		t.FailNow()
+	}
+}
+
+func TestBasicParseAnonStruct2(t *testing.T) {
+	simpleStruct := `
+package types
+
+type A struct {
+  Hello struct {
+    World string
+    A map[string][]int
+    AnotherStruct struct{
+      B string
+    }
+    B []struct{
+      C string
+    }
+  }
+}
+`
+
+	valibotValidator := `
+import { object, string, record, array, number } from 'valibot';
+
+const A = object({
+  Hello: object({
+    World: string(),
+    A: record(array(number())),
+    AnotherStruct: object({
+      B: string(),
+    }),
+    B: array(object({
+        C: string(),
+      })),
   }),
 });
 `
