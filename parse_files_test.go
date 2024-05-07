@@ -118,3 +118,31 @@ const WithMap = object({
 		t.FailNow()
 	}
 }
+
+func TestDuplicateNames(t *testing.T) {
+	valibotString, err := MainParse("./test/test5/a.go", "johncosta.tech/struct-to-types")
+
+	valibotValidator := `
+import { object, string, record } from 'valibot';
+
+const MyStruct = object({
+  Main: string(),
+});
+
+const NestedMyStruct = object({
+  Nested: string(),
+});
+`
+
+	t.Log(valibotString)
+
+	if err != nil {
+		t.Log("Error is not null")
+		t.Log(err)
+		t.FailNow()
+	}
+
+	if valibotString != valibotValidator {
+		t.FailNow()
+	}
+}
