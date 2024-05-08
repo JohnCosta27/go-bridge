@@ -2,8 +2,10 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"slices"
 	"sort"
+	"strings"
 )
 
 var NoJsType = errors.New("Cannot find corresponding JS type")
@@ -81,7 +83,6 @@ func recGetLastType(field StructField) string {
  * much room for improvement.
  */
 func orderStructList(structList StructList) (StructList, error) {
-
 	//
 	// Because we used a map while getting our structs,
 	// We need to order the structs based on order they came to us.
@@ -180,20 +181,20 @@ func appendedType(t string) string {
 	return t + "()),\n"
 }
 
-func getStructFieldType(validators map[string]uint, counter *uint, field StructField, indent uint) (string, error) {
+func getStructFieldType(validators map[string]uint, nameMap map[string]string, counter *uint, field StructField, indent uint) (string, error) {
 	switch t := field.(type) {
 	case BasicStructField:
 		jsType, err := getJsType(t.Type)
 
 		if err == NoJsType {
-			return t.Type, nil
+			return nameMap[t.Type], nil
 		}
 
 		maybeAdd(validators, counter, jsType)
 		return jsType + "()", nil
 	case ArrayStructField:
 		maybeAdd(validators, counter, "array")
-		recValue, err := getStructFieldType(validators, counter, t.Type, indent+1)
+		recValue, err := getStructFieldType(validators, nameMap, counter, t.Type, indent+1)
 		if err != nil {
 			return "", err
 		}
@@ -201,7 +202,7 @@ func getStructFieldType(validators map[string]uint, counter *uint, field StructF
 		return "array(" + recValue + ")", nil
 	case MapStructField:
 		maybeAdd(validators, counter, "record")
-		recValue, err := getStructFieldType(validators, counter, t.Value, indent+1)
+		recValue, err := getStructFieldType(validators, nameMap, counter, t.Value, indent+1)
 		if err != nil {
 			return "", err
 		}
@@ -210,7 +211,7 @@ func getStructFieldType(validators map[string]uint, counter *uint, field StructF
 	case AnonStructField:
 		output := "object({\n"
 		for _, v := range t.Fields {
-			fieldOutput, err := getSingleField(validators, counter, v, indent+1)
+			fieldOutput, err := getSingleField(validators, nameMap, counter, v, indent+1)
 			if err != nil {
 				return "", err
 			}
@@ -224,8 +225,8 @@ func getStructFieldType(validators map[string]uint, counter *uint, field StructF
 	}
 }
 
-func getSingleField(validators map[string]uint, counter *uint, field StructField, indent uint) (string, error) {
-	typeValue, err := getStructFieldType(validators, counter, field, indent)
+func getSingleField(validators map[string]uint, nameMap map[string]string, counter *uint, field StructField, indent uint) (string, error) {
+	typeValue, err := getStructFieldType(validators, nameMap, counter, field, indent)
 	if err != nil {
 		return "", err
 	}
@@ -233,18 +234,29 @@ func getSingleField(validators map[string]uint, counter *uint, field StructField
 	return getSpaces(indent+1) + field.Name() + ": " + typeValue + ",\n", nil
 }
 
+func getName(namespacedName string) string {
+	return strings.Split(namespacedName, "-")[1]
+}
+
 func structsToValibot(structList StructList) (string, error) {
 	valibotOutput := ""
+
+	nameMap := make(map[string]string)
+	for _, s := range structList {
+		nameMap[s.Name] = getName(s.Name)
+	}
 
 	importedValidators := make(map[string]uint)
 	importedValidators["object"] = 0
 	var counter uint = 1
 
+	fmt.Println(structList)
+
 	for _, s := range structList {
-		localValidbotOutput := "const " + s.Name + " = object({\n"
+		localValidbotOutput := "const " + getName(s.Name) + " = object({\n"
 
 		for _, fieldType := range s.Fields {
-			fieldOutput, err := getSingleField(importedValidators, &counter, fieldType, 0)
+			fieldOutput, err := getSingleField(importedValidators, nameMap, &counter, fieldType, 0)
 			if err != nil {
 				return "", err
 			}

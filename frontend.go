@@ -14,7 +14,9 @@ type OrderedStructType struct {
 	*ast.StructType
 	File *ast.File
 
-	Order uint
+	StructName  string
+	PackagePath string
+	Order       uint
 }
 
 type NameToStructPos = map[string]OrderedStructType
@@ -52,9 +54,11 @@ func (p *Parser) consumeFile(file *ast.File, packagePath string) string {
 				continue
 			}
 
-			allStructs[typeSpec.Name.Name] = OrderedStructType{
-				StructType: structType,
-				Order:      order,
+			allStructs[packagePath+"-"+typeSpec.Name.Name] = OrderedStructType{
+				StructType:  structType,
+				StructName:  typeSpec.Name.Name,
+				Order:       order,
+				PackagePath: packagePath,
 
 				File: file,
 			}
@@ -114,9 +118,9 @@ func (p *Parser) parseEmbeddedStructField(orderedStruct OrderedStructType, struc
 		return []StructField{}, errors.New("Could not find package of embedded struct")
 	}
 
-	astF, exists := moduleStruct[structName]
+	astF, exists := moduleStruct[orderedStruct.PackagePath+"-"+structName]
 	if !exists {
-		return []StructField{}, errors.New("Chould not find embedded struct")
+		return []StructField{}, errors.New("Could not find embedded struct")
 	}
 
 	embeddedStructFields, err := p.parseStruct(astF)
@@ -127,8 +131,35 @@ func (p *Parser) parseEmbeddedStructField(orderedStruct OrderedStructType, struc
 	return embeddedStructFields, nil
 }
 
+func (p *Parser) getPackagePath(imports []*ast.ImportSpec, packageName string) string {
+	for _, i := range imports {
+		v := i.Path.Value
+		v = v[len(p.projectPath)+2 : len(v)-1]
+
+		_, lastPath := filepath.Split(v)
+
+		if lastPath == packageName {
+			return v
+		}
+	}
+
+	return ""
+}
+
 func (p *Parser) parseDependencyField(orderedStruct OrderedStructType, fieldName string, expr *ast.SelectorExpr) (StructField, error) {
-	structName := expr.Sel.Name
+	packageName, ok := expr.X.(*ast.Ident)
+	if !ok {
+		return BasicStructField{}, errors.New("Could not match type of package")
+	}
+
+	depPackagePath := p.getPackagePath(orderedStruct.File.Imports, packageName.Name)
+
+	structName := ""
+	if depPackagePath != "" {
+		structName = depPackagePath + "-" + expr.Sel.Name
+	} else {
+		structName = orderedStruct.PackagePath + "-" + expr.Sel.Name
+	}
 
 	depImport := orderedStruct.File.Imports[0].Path.Value
 	depImport = depImport[len(p.projectPath)+2 : len(depImport)-1]
@@ -165,7 +196,6 @@ func (p *Parser) parseMapField(orderedStruct OrderedStructType, fieldName string
 
 	valueIdent, ok := mapAst.Value.(*ast.Ident)
 	if !ok {
-
 		valueType, err := p.parseStructFieldType(orderedStruct, fieldName, mapAst.Value)
 		if err != nil {
 			return BasicStructField{}, err
@@ -178,12 +208,23 @@ func (p *Parser) parseMapField(orderedStruct OrderedStructType, fieldName string
 		}, nil
 	}
 
+	_, err := getJsType(valueIdent.Name)
+	if err != nil {
+		return MapStructField{name: fieldName, KeyType: keyIdent.Name, Value: BasicStructField{name: fieldName, Type: orderedStruct.PackagePath + "-" + valueIdent.Name}}, nil
+	}
+
 	return MapStructField{name: fieldName, KeyType: keyIdent.Name, Value: BasicStructField{name: fieldName, Type: valueIdent.Name}}, nil
 }
 
 func (p *Parser) parseStructFieldType(orderedStruct OrderedStructType, fieldName string, field ast.Expr) (StructField, error) {
 	switch t := field.(type) {
 	case *ast.Ident:
+		// Same package dependant structs go in here.
+		_, err := getJsType(t.Name)
+		if err != nil {
+			return BasicStructField{name: fieldName, Type: orderedStruct.PackagePath + "-" + t.Name}, nil
+		}
+
 		return BasicStructField{name: fieldName, Type: t.Name}, nil
 	case *ast.SelectorExpr:
 		return p.parseDependencyField(orderedStruct, fieldName, t)
