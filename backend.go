@@ -91,6 +91,10 @@ func orderStructList(structList StructList) (StructList, error) {
 		return structList[i].Order < structList[j].Order
 	})
 
+	//
+	// At this point we could have duplicate names across packages.
+	//
+
 	nodeMap := make([]*Node, 0)
 
 	for _, s := range structList {

@@ -12,10 +12,9 @@ import (
 
 type OrderedStructType struct {
 	*ast.StructType
+	File *ast.File
 
-	Order    uint
-	FromFile string
-	File     *ast.File
+	Order uint
 }
 
 type NameToStructPos = map[string]OrderedStructType
@@ -31,9 +30,8 @@ type Parser struct {
 	outputStructs []Struct
 }
 
-func (p *Parser) consumeFile(file *ast.File, fileName string) string {
+func (p *Parser) consumeFile(file *ast.File, packagePath string) string {
 	allStructs := make(NameToStructPos)
-	packageName := file.Name.Name
 
 	var order uint = 0
 
@@ -57,17 +55,17 @@ func (p *Parser) consumeFile(file *ast.File, fileName string) string {
 			allStructs[typeSpec.Name.Name] = OrderedStructType{
 				StructType: structType,
 				Order:      order,
-				FromFile:   fileName,
-				File:       file,
+
+				File: file,
 			}
 
 			order++
 		}
 	}
 
-	existingModuleStructs, exists := p.moduleStructs[packageName]
+	existingModuleStructs, exists := p.moduleStructs[packagePath]
 	if !exists {
-		p.moduleStructs[packageName] = allStructs
+		p.moduleStructs[packagePath] = allStructs
 		return file.Name.Name
 	}
 
@@ -104,7 +102,7 @@ func (p *Parser) consumeDir(dirPath string) (string, error) {
 
 		packageName = astFile.Name.Name
 
-		p.consumeFile(astFile, fileName)
+		p.consumeFile(astFile, dirPath)
 	}
 
 	return packageName, nil
@@ -130,11 +128,6 @@ func (p *Parser) parseEmbeddedStructField(orderedStruct OrderedStructType, struc
 }
 
 func (p *Parser) parseDependencyField(orderedStruct OrderedStructType, fieldName string, expr *ast.SelectorExpr) (StructField, error) {
-	packageName, ok := expr.X.(*ast.Ident)
-	if !ok {
-		return BasicStructField{}, errors.New("Could not parse dependency field")
-	}
-
 	structName := expr.Sel.Name
 
 	depImport := orderedStruct.File.Imports[0].Path.Value
@@ -142,7 +135,7 @@ func (p *Parser) parseDependencyField(orderedStruct OrderedStructType, fieldName
 
 	p.consumeDir(depImport)
 
-	packageStructs, exists := p.moduleStructs[packageName.Name]
+	packageStructs, exists := p.moduleStructs[depImport]
 	if !exists {
 		return BasicStructField{}, errors.New("Could not find package structs after consuming dir")
 	}
@@ -159,7 +152,7 @@ func (p *Parser) parseDependencyField(orderedStruct OrderedStructType, fieldName
 
 	cleanPackageStructs := make(NameToStructPos)
 	cleanPackageStructs[structName] = packageStructs[structName]
-	p.moduleStructs[packageName.Name] = cleanPackageStructs
+	p.moduleStructs[depImport] = cleanPackageStructs
 
 	return BasicStructField{name: fieldName, Type: structName}, nil
 }

@@ -47,8 +47,11 @@ func (s AnonStructField) Name() string {
 }
 
 type Struct struct {
-	Name   string
-	Order  uint
+	Order uint
+
+	Name        string
+	PackagePath string
+
 	Fields []StructField
 }
 

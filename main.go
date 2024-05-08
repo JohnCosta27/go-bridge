@@ -42,7 +42,7 @@ func CodeParse(content string) (string, error) {
 	}
 
 	p.entryPackage = astFile.Name.Name
-	p.consumeFile(astFile, astFile.Name.Name+".go")
+	p.consumeFile(astFile, astFile.Name.Name)
 
 	structs, err := p.Parse()
 	if err != nil {
