@@ -24,6 +24,15 @@ type NameToStructPos = map[string]OrderedStructType
 // Map: ModuleName -> List of its structs
 type ModuleStructs = map[string]NameToStructPos
 
+// ====================== TODO ======================
+// `moduleStructs` now is too complicated, because
+// we are using the full paths to the packages as
+// we know we can't have duplicated full paths.
+//
+// We could flatten this map,
+// and make our code a bit nicer.
+// ==================================================
+
 type Parser struct {
 	projectPath  string
 	entryPackage string
