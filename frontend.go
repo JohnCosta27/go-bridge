@@ -201,7 +201,7 @@ func (p *Parser) parseDependencyField(orderedStruct OrderedStructType, fieldName
 
 	cleanPackageStructs := make(NameToStructPos)
 	cleanPackageStructs[structName] = packageStructs[structName]
-	p.moduleStructs[depImport] = cleanPackageStructs
+	p.moduleStructs[fullPath] = cleanPackageStructs
 
 	return BasicStructField{name: fieldName, Type: structName}, nil
 }

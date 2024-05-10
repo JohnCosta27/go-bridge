@@ -129,9 +129,14 @@ const morenestedNested = object({
   Hello: string(),
 });
 
+const DoubleNested = object({
+  Nested: string(),
+});
+
 const nestedNested = object({
   DoubleNested: string(),
   MoreNested: morenestedNested,
+  MyDoubleNested: DoubleNested,
 });
 
 const Nested = object({
