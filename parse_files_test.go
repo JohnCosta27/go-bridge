@@ -120,18 +120,22 @@ const WithMap = object({
 }
 
 func TestDuplicateNames(t *testing.T) {
-	t.Skip()
 	valibotString, err := MainParse("./test/test5/a.go", "johncosta.tech/struct-to-types")
 
 	valibotValidator := `
-import { object, string, record } from 'valibot';
+import { object, string } from 'valibot';
 
-const MyStruct = object({
-  Main: string(),
+const morenestedNested = object({
+  Hello: string(),
 });
 
-const NestedMyStruct = object({
-  Nested: string(),
+const nestedNested = object({
+  DoubleNested: string(),
+  MoreNested: morenestedNested,
+});
+
+const Nested = object({
+  Main: nestedNested,
 });
 `
 

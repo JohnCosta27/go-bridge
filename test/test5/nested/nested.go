@@ -1,7 +1,11 @@
 package nested
 
-import "johncosta.tech/struct-to-types/test/test5/nested/nested"
+import (
+	"johncosta.tech/struct-to-types/test/test5/nested/morenested"
+)
 
 type Nested struct {
-	DoubleNested nested.Nested
+	DoubleNested string
+
+	MoreNested morenested.Nested
 }

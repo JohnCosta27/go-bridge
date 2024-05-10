@@ -238,22 +238,72 @@ func getName(namespacedName string) string {
 	return strings.Split(namespacedName, "-")[1]
 }
 
+func getNameWithPackage(namespacedName string, level int) string {
+	splitDash := strings.Split(namespacedName, "-")
+
+	packagePath := splitDash[0]
+	realName := splitDash[1]
+
+	splitSlashes := strings.Split(packagePath, "/")
+
+	var index = len(splitSlashes) - 1
+	output := realName
+
+	for i := index; i >= index-level+1; i-- {
+		output = splitSlashes[i] + output
+	}
+
+	return output
+}
+
 func structsToValibot(structList StructList) (string, error) {
 	valibotOutput := ""
 
+	names := make([]string, len(structList))
+	nameToIndex := make(map[string]int)
+	usedNames := make([]string, 0)
 	nameMap := make(map[string]string)
-	for _, s := range structList {
-		nameMap[s.Name] = getName(s.Name)
+
+	for i, v := range structList {
+		names[i] = v.Name
+		nameToIndex[v.Name] = i
+	}
+
+	sort.Slice(names, func(i, j int) bool {
+		n1 := names[i]
+		n2 := names[j]
+
+		return strings.Count(n1, "-")+strings.Count(n1, "/") < strings.Count(n2, "-")+strings.Count(n2, "/")
+	})
+
+	fmt.Println(names)
+
+	for _, name := range names {
+		structName := getName(name)
+
+		originalIndex := nameToIndex[name]
+		originalStruct := structList[originalIndex]
+
+		exists := slices.Contains(usedNames, structName)
+
+		level := 1
+		for exists {
+			structName = getNameWithPackage(originalStruct.Name, level)
+
+			level++
+			exists = slices.Contains(usedNames, structName)
+		}
+
+		usedNames = append(usedNames, structName)
+		nameMap[originalStruct.Name] = structName
 	}
 
 	importedValidators := make(map[string]uint)
 	importedValidators["object"] = 0
 	var counter uint = 1
 
-	fmt.Println(structList)
-
 	for _, s := range structList {
-		localValidbotOutput := "const " + getName(s.Name) + " = object({\n"
+		localValidbotOutput := "const " + nameMap[s.Name] + " = object({\n"
 
 		for _, fieldType := range s.Fields {
 			fieldOutput, err := getSingleField(importedValidators, nameMap, &counter, fieldType, 0)
