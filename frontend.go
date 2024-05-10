@@ -152,8 +152,9 @@ func (p *Parser) parseDependencyField(orderedStruct OrderedStructType, fieldName
 		return BasicStructField{}, errors.New("Could not match type of package")
 	}
 
-	depPackagePath := p.getPackagePath(orderedStruct.File.Imports, packageName.Name)
+	// ==== TODO: Refactor into seperate function ====
 
+	depPackagePath := p.getPackagePath(orderedStruct.File.Imports, packageName.Name)
 	structName := ""
 	if depPackagePath != "" {
 		structName = depPackagePath + "-" + expr.Sel.Name
@@ -161,12 +162,29 @@ func (p *Parser) parseDependencyField(orderedStruct OrderedStructType, fieldName
 		structName = orderedStruct.PackagePath + "-" + expr.Sel.Name
 	}
 
-	depImport := orderedStruct.File.Imports[0].Path.Value
-	depImport = depImport[len(p.projectPath)+2 : len(depImport)-1]
+	// ====
 
-	p.consumeDir(depImport)
+	depImport := ""
+	fullPath := ""
 
-	packageStructs, exists := p.moduleStructs[depImport]
+	for _, in := range orderedStruct.File.Imports {
+		strippedValue := in.Path.Value[1 : len(in.Path.Value)-1]
+		importPackageName := filepath.Base(strippedValue)
+
+		if importPackageName == packageName.Name {
+			depImport = importPackageName
+			fullPath = strippedValue[len(p.projectPath)+1:]
+			break
+		}
+	}
+
+	if depImport == "" {
+		return BasicStructField{}, errors.New("Could not find imported package")
+	}
+
+	p.consumeDir(fullPath)
+
+	packageStructs, exists := p.moduleStructs[fullPath]
 	if !exists {
 		return BasicStructField{}, errors.New("Could not find package structs after consuming dir")
 	}

@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"slices"
 	"sort"
 	"strings"
@@ -275,8 +274,6 @@ func structsToValibot(structList StructList) (string, error) {
 
 		return strings.Count(n1, "-")+strings.Count(n1, "/") < strings.Count(n2, "-")+strings.Count(n2, "/")
 	})
-
-	fmt.Println(names)
 
 	for _, name := range names {
 		structName := getName(name)
