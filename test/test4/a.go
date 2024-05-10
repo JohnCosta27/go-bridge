@@ -1,6 +1,6 @@
 package main
 
-import "johncosta.tech/struct-to-types/test/test4/nested"
+import "johncosta.tech/go-bridge/test/test4/nested"
 
 type WithMap struct {
 	Map map[string]nested.IAmNested

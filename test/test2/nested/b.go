@@ -1,6 +1,6 @@
 package nested
 
-import "johncosta.tech/struct-to-types/test/test2/nested/morenested"
+import "johncosta.tech/go-bridge/test/test2/nested/morenested"
 
 type NestedStruct struct {
 	Hello string
