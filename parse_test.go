@@ -662,3 +662,79 @@ const A = object({
 		t.FailNow()
 	}
 }
+
+func TestPointers(t *testing.T) {
+	t.Run("Simple pointer to string", func(t *testing.T) {
+		simpleStruct := `
+package types
+
+type A struct {
+  Pointer *string
+}
+`
+
+		valibotValidator := `
+import { object, string } from 'valibot';
+
+const A = object({
+  Pointer: string(),
+});
+`
+
+		outputParse, err := CodeParse(simpleStruct)
+		t.Log(outputParse)
+
+		if err != nil {
+			t.Log("Error is not null")
+			t.Log(err)
+			t.FailNow()
+		}
+
+		if outputParse != valibotValidator {
+			t.FailNow()
+		}
+	})
+
+	t.Run("Pointers to structs", func(t *testing.T) {
+		simpleStruct := `
+package types
+
+type A struct {
+  Hello string
+}
+
+type B struct {
+  APointer *A
+  AArrayPointer []*A
+  AMapPointer map[string]*A
+}
+`
+
+		valibotValidator := `
+import { object, string, array, record } from 'valibot';
+
+const A = object({
+  Hello: string(),
+});
+
+const B = object({
+  APointer: A,
+  AArrayPointer: array(A),
+  AMapPointer: record(A),
+});
+`
+
+		outputParse, err := CodeParse(simpleStruct)
+		t.Log(outputParse)
+
+		if err != nil {
+			t.Log("Error is not null")
+			t.Log(err)
+			t.FailNow()
+		}
+
+		if outputParse != valibotValidator {
+			t.FailNow()
+		}
+	})
+}

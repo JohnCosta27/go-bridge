@@ -255,6 +255,8 @@ func (p *Parser) parseStructFieldType(orderedStruct OrderedStructType, fieldName
 		return BasicStructField{name: fieldName, Type: t.Name}, nil
 	case *ast.SelectorExpr:
 		return p.parseDependencyField(orderedStruct, fieldName, t)
+	case *ast.StarExpr:
+		return p.parseStructFieldType(orderedStruct, fieldName, t.X)
 	case *ast.ArrayType:
 		field, err := p.parseStructFieldType(orderedStruct, fieldName, t.Elt)
 		if err != nil {
