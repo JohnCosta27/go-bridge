@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"go/parser"
 	"go/token"
@@ -85,21 +86,21 @@ func readProjectPath(goModPath string) (string, error) {
 func main() {
 	args := os.Args[1:]
 
+	rootPath := flag.String("root", ".", "The path of the root of your go project (containing go.mod)")
+	flag.Parse()
+
 	if len(args) == 0 {
 		fmt.Println("Please type an entry file")
 		return
 	}
 
-	entryFile := args[0]
-
-	packageDir, _ := filepath.Split(entryFile)
-	withGoMod := packageDir + "go.mod"
-
-	projectPath, err := readProjectPath(withGoMod)
+	projectPath, err := readProjectPath(filepath.Join(*rootPath, "go.mod"))
 	if err != nil {
 		fmt.Fprintln(os.Stdout, err)
 		return
 	}
+
+	entryFile := args[0]
 
 	output, err := MainParse(entryFile, projectPath)
 	if err != nil {
