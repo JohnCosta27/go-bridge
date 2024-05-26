@@ -1,6 +1,6 @@
 package main
 
-import "JohnCosta27/go-bridge/test/test2/nested"
+import "github.com/JohnCosta27/go-bridge/test/test2/nested"
 
 type MainStruct struct {
 	World nested.NestedStruct
