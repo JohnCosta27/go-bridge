@@ -1,3 +1,3 @@
-module JohnCosta27/go-bridge
+module github.com/JohnCosta27/go-bridge
 
-go 1.22.1
+go 1.22.3
