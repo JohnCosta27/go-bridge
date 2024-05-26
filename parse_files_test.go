@@ -3,7 +3,7 @@ package main
 import "testing"
 
 func TestSamePackage(t *testing.T) {
-	valibotString, err := MainParse("./test/test1/a.go", "JohnCosta27/go-bridge")
+	valibotString, err := MainParse("./test/test1/a.go", "github.com/JohnCosta27/go-bridge")
 
 	valibotValidator := `
 import { object, string } from 'valibot';
@@ -165,6 +165,30 @@ import { object, any } from 'valibot';
 
 const Test6 = object({
   time: any(),
+});
+`
+
+	t.Log(valibotString)
+
+	if err != nil {
+		t.Log("Error is not null")
+		t.Log(err)
+		t.FailNow()
+	}
+
+	if valibotString != valibotValidator {
+		t.FailNow()
+	}
+}
+
+func TestEmbeddedNestedStruct(t *testing.T) {
+	valibotString, err := MainParse("./test/test7/a.go", "")
+
+	valibotValidator := `
+import { object, string } from 'valibot';
+
+const A = object({
+  Hello: string(),
 });
 `
 

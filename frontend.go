@@ -311,6 +311,18 @@ func (p *Parser) parseStructField(orderedStruct OrderedStructType, field *ast.Fi
 			return []StructField{}, errors.New("Do not currently support non-ident types on embedded")
 		}
 
+		//
+		// TODO:
+		// What we do currently is: Find a dependency, parse as the name,
+		// and add that struct to the end of our queue.
+		// But with embedded structs you need to know straight away
+		//
+		// In this situation, we should send the embedded struct to the back of the queue.
+		// And then check the processed structs where we will find this dependency.
+		//
+		// Then we can take its fields and add them on here.
+		//
+
 		return p.parseEmbeddedStructField(orderedStruct, ident.Name)
 	}
 
