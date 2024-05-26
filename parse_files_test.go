@@ -156,3 +156,27 @@ const Nested = object({
 		t.FailNow()
 	}
 }
+
+func TestDepStructs(t *testing.T) {
+	valibotString, err := MainParse("./test/test6/a.go", "")
+
+	valibotValidator := `
+import { object, any } from 'valibot';
+
+const Test6 = object({
+  time: any(),
+});
+`
+
+	t.Log(valibotString)
+
+	if err != nil {
+		t.Log("Error is not null")
+		t.Log(err)
+		t.FailNow()
+	}
+
+	if valibotString != valibotValidator {
+		t.FailNow()
+	}
+}

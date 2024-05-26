@@ -106,6 +106,11 @@ func orderStructList(structList StructList) (StructList, error) {
 
 	for i, node := range nodeMap {
 		for _, field := range structList[i].Fields {
+			_, isUnknown := field.(UnknownStructField)
+			if isUnknown {
+				continue
+			}
+
 			lastType := recGetLastType(field)
 
 			_, err := getJsType(lastType)
@@ -191,6 +196,9 @@ func getStructFieldType(validators map[string]uint, nameMap map[string]string, c
 
 		maybeAdd(validators, counter, jsType)
 		return jsType + "()", nil
+	case UnknownStructField:
+		maybeAdd(validators, counter, "any")
+		return "any()", nil
 	case ArrayStructField:
 		maybeAdd(validators, counter, "array")
 		recValue, err := getStructFieldType(validators, nameMap, counter, t.Type, indent+1)

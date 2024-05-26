@@ -8,6 +8,7 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 type OrderedStructType struct {
@@ -32,6 +33,10 @@ type ModuleStructs = map[string]NameToStructPos
 // We could flatten this map,
 // and make our code a bit nicer.
 // ==================================================
+
+type Bruh struct {
+	dsadsa time.Time
+}
 
 type Parser struct {
 	projectPath  string
@@ -195,7 +200,21 @@ func (p *Parser) parseDependencyField(orderedStruct OrderedStructType, fieldName
 
 	packageStructs, exists := p.moduleStructs[fullPath]
 	if !exists {
-		return BasicStructField{}, errors.New("Could not find package structs after consuming dir")
+
+		//
+		// If the structs does not exist in a dependency, then this must be some
+		// external dependency instead of a package dependency.
+		//
+		// We look for our own setup to see if we have a matching type,
+		// otherwise we do with "any".
+		//
+
+		ident, ok := expr.X.(*ast.Ident)
+		if !ok {
+			return BasicStructField{}, errors.New("Expression type should be ident")
+		}
+
+		return UnknownStructField{FullType: ident.Name + "." + expr.Sel.Name, name: fieldName}, nil
 	}
 
 	//

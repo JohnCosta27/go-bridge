@@ -11,6 +11,12 @@ type BasicStructField struct {
 	name string
 }
 
+type UnknownStructField struct {
+	FullType string
+
+	name string
+}
+
 type ArrayStructField struct {
 	Type StructField
 
@@ -31,6 +37,10 @@ type AnonStructField struct {
 }
 
 func (s BasicStructField) Name() string {
+	return s.name
+}
+
+func (s UnknownStructField) Name() string {
 	return s.name
 }
 
