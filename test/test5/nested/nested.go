@@ -1,8 +1,8 @@
 package nested
 
 import (
-	"johncosta.tech/go-bridge/test/test5/nested/morenested"
-	"johncosta.tech/go-bridge/test/test5/nested/nested"
+	"JohnCosta27/go-bridge/test/test5/nested/morenested"
+	"JohnCosta27/go-bridge/test/test5/nested/nested"
 )
 
 type Nested struct {
