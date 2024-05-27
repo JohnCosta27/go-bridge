@@ -11,6 +11,12 @@ type BasicStructField struct {
 	name string
 }
 
+type EmbeddedStructField struct {
+	Type string
+
+	name string
+}
+
 type UnknownStructField struct {
 	FullType string
 

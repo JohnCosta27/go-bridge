@@ -307,8 +307,8 @@ func (p *Parser) parseStructField(orderedStruct OrderedStructType, field *ast.Fi
 
 	if len(field.Names) == 0 {
 		ident, ok := field.Type.(*ast.Ident)
-		if !ok {
-			return []StructField{}, errors.New("Do not currently support non-ident types on embedded")
+		if ok {
+			return p.parseEmbeddedStructField(orderedStruct, ident.Name)
 		}
 
 		//
@@ -322,8 +322,28 @@ func (p *Parser) parseStructField(orderedStruct OrderedStructType, field *ast.Fi
 		//
 		// Then we can take its fields and add them on here.
 		//
+		// EDIT:
+		// Fuck that, let's just have a type called `EmbeddedStructField` and do this processing in post.
+		// This will also allow us to simplify the regular `EmbeddedStructs` which work on same package level
+		// And never have to fuck around with processing order.
+		//
 
-		return p.parseEmbeddedStructField(orderedStruct, ident.Name)
+		selectorExpr, ok := field.Type.(*ast.SelectorExpr)
+		if !ok {
+			return []StructField{}, errors.New(fmt.Sprintf("We do not currently support %T on embedded types", field.Type))
+		}
+
+		mainExpr, ok := selectorExpr.X.(*ast.Ident)
+		if !ok {
+			return []StructField{}, errors.New(fmt.Sprintf("We do not currently support %T on embedded types", field.Type))
+		}
+
+		fmt.Println(mainExpr.Name + "." + selectorExpr.Sel.Name)
+		for _, v := range p.outputStructs {
+			fmt.Println(v.Name)
+		}
+
+		return []StructField{}, errors.New("Bruh")
 	}
 
 	structFields, err := p.parseStructFieldType(orderedStruct, field.Names[0].Name, field.Type)
@@ -350,8 +370,6 @@ func (p *Parser) parseStruct(orderedStruct OrderedStructType) ([]StructField, er
 }
 
 func (p *Parser) Parse() ([]Struct, error) {
-	processedStructs := make([]Struct, 0)
-
 	for len(p.moduleStructs) > 0 {
 
 		for packageName, packageStructs := range p.moduleStructs {
@@ -367,7 +385,7 @@ func (p *Parser) Parse() ([]Struct, error) {
 					Fields: fields,
 				}
 
-				processedStructs = append(processedStructs, parsedStruct)
+				p.outputStructs = append(p.outputStructs, parsedStruct)
 			}
 
 			delete(p.moduleStructs, packageName)
@@ -375,13 +393,14 @@ func (p *Parser) Parse() ([]Struct, error) {
 
 	}
 
-	return processedStructs, nil
+	return p.outputStructs, nil
 }
 
 func ParserFactory(entryFile string, givenProjectPath string) (Parser, error) {
 	p := Parser{
 		projectPath:   givenProjectPath,
 		moduleStructs: make(ModuleStructs),
+		outputStructs: make([]Struct, 0),
 	}
 
 	path := filepath.Dir(entryFile)
