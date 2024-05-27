@@ -50,6 +50,10 @@ func (s UnknownStructField) Name() string {
 	return s.name
 }
 
+func (s EmbeddedStructField) Name() string {
+	return s.name
+}
+
 func (s ArrayStructField) Name() string {
 	return s.name
 }

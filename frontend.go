@@ -8,6 +8,7 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 )
 
@@ -338,12 +339,15 @@ func (p *Parser) parseStructField(orderedStruct OrderedStructType, field *ast.Fi
 			return []StructField{}, errors.New(fmt.Sprintf("We do not currently support %T on embedded types", field.Type))
 		}
 
-		fmt.Println(mainExpr.Name + "." + selectorExpr.Sel.Name)
-		for _, v := range p.outputStructs {
-			fmt.Println(v.Name)
-		}
+		// Parse dep field will do all the file handling stuff
+		_, _ = p.parseDependencyField(orderedStruct, "", selectorExpr)
 
-		return []StructField{}, errors.New("Bruh")
+		return []StructField{
+			EmbeddedStructField{
+				Type: p.getPackagePath(orderedStruct.File.Imports, mainExpr.Name) + "-" + selectorExpr.Sel.Name,
+				name: "",
+			},
+		}, nil
 	}
 
 	structFields, err := p.parseStructFieldType(orderedStruct, field.Names[0].Name, field.Type)
@@ -391,6 +395,46 @@ func (p *Parser) Parse() ([]Struct, error) {
 			delete(p.moduleStructs, packageName)
 		}
 
+	}
+
+	for i, s := range p.outputStructs {
+		changed := false
+		for _, field := range s.Fields {
+			embedded, ok := field.(EmbeddedStructField)
+			if !ok {
+				continue
+			}
+
+			changed = true
+
+			index := slices.IndexFunc(p.outputStructs, func(s1 Struct) bool {
+				return s1.Name == embedded.Type
+			})
+
+			if index == -1 {
+				return []Struct{}, errors.New("Could not find indexed of embedded struct")
+			}
+
+			toEmbed := p.outputStructs[index]
+			s.Fields = append(s.Fields, toEmbed.Fields...)
+		}
+
+		if !changed {
+			continue
+		}
+
+		newFields := make([]StructField, 0)
+
+		for _, field := range s.Fields {
+			_, ok := field.(EmbeddedStructField)
+			if ok {
+				continue
+			}
+
+			newFields = append(newFields, field)
+		}
+
+		p.outputStructs[i].Fields = newFields
 	}
 
 	return p.outputStructs, nil

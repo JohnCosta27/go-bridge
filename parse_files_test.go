@@ -182,13 +182,25 @@ const Test6 = object({
 }
 
 func TestEmbeddedNestedStruct(t *testing.T) {
-	valibotString, err := MainParse("./test/test7/a.go", "")
+	valibotString, err := MainParse("./test/test7/a.go", "github.com/JohnCosta27/go-bridge")
 
 	valibotValidator := `
-import { object, string } from 'valibot';
+import { object, string, number, record } from 'valibot';
+
+const Simple = object({
+  A: string(),
+});
+
+const B = object({
+  Hello: string(),
+  World: number(),
+  Bad: record(string()),
+});
 
 const A = object({
   Hello: string(),
+  World: number(),
+  Bad: record(string()),
 });
 `
 
