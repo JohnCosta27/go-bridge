@@ -71,6 +71,10 @@ func recGetLastType(field StructField) string {
 		return recGetLastType(t.Type)
 	case AnonStructField:
 		return recGetLastType(t.Fields[0])
+	case EmbeddedStructField:
+		return t.Type
+	case UnknownStructField:
+		return "int" // just any ol' type to not confuse topoolical sort
 	default:
 		panic("Switch should be exhaustive")
 	}
@@ -227,8 +231,16 @@ func getStructFieldType(validators map[string]uint, nameMap map[string]string, c
 		}
 		output += getSpaces(indent+1) + "})"
 		return output, nil
+	case EmbeddedStructField:
+		name, exists := nameMap[t.Type]
+
+		if !exists {
+			return "", errors.New("Type should always exist in processing name map")
+		}
+
+		return "..." + name + ".entries", nil
 	default:
-		return "", errors.New("not implemented")
+		return "", errors.New("Haven't implemented this type in backend")
 	}
 }
 
@@ -236,6 +248,11 @@ func getSingleField(validators map[string]uint, nameMap map[string]string, count
 	typeValue, err := getStructFieldType(validators, nameMap, counter, field, indent)
 	if err != nil {
 		return "", err
+	}
+
+	_, isEmbedded := field.(EmbeddedStructField)
+	if isEmbedded {
+		return getSpaces(indent+1) + typeValue + ",\n", nil
 	}
 
 	return getSpaces(indent+1) + field.Name() + ": " + typeValue + ",\n", nil

@@ -8,7 +8,6 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
-	"slices"
 	"time"
 )
 
@@ -45,6 +44,21 @@ type Parser struct {
 
 	moduleStructs ModuleStructs
 	outputStructs []Struct
+}
+
+func (p *Parser) getPackagePath(imports []*ast.ImportSpec, packageName string) string {
+	for _, i := range imports {
+		v := i.Path.Value
+		v = v[len(p.projectPath)+2 : len(v)-1]
+
+		_, lastPath := filepath.Split(v)
+
+		if lastPath == packageName {
+			return v
+		}
+	}
+
+	return ""
 }
 
 func (p *Parser) consumeFile(file *ast.File, packagePath string) string {
@@ -125,40 +139,6 @@ func (p *Parser) consumeDir(dirPath string) (string, error) {
 	}
 
 	return packageName, nil
-}
-
-func (p *Parser) parseEmbeddedStructField(orderedStruct OrderedStructType, structName string) ([]StructField, error) {
-	moduleStruct, exists := p.moduleStructs[orderedStruct.File.Name.Name]
-	if !exists {
-		return []StructField{}, errors.New("Could not find package of embedded struct")
-	}
-
-	astF, exists := moduleStruct[orderedStruct.PackagePath+"-"+structName]
-	if !exists {
-		return []StructField{}, errors.New("Could not find embedded struct")
-	}
-
-	embeddedStructFields, err := p.parseStruct(astF)
-	if err != nil {
-		return []StructField{}, err
-	}
-
-	return embeddedStructFields, nil
-}
-
-func (p *Parser) getPackagePath(imports []*ast.ImportSpec, packageName string) string {
-	for _, i := range imports {
-		v := i.Path.Value
-		v = v[len(p.projectPath)+2 : len(v)-1]
-
-		_, lastPath := filepath.Split(v)
-
-		if lastPath == packageName {
-			return v
-		}
-	}
-
-	return ""
 }
 
 func (p *Parser) parseDependencyField(orderedStruct OrderedStructType, fieldName string, expr *ast.SelectorExpr) (StructField, error) {
@@ -301,73 +281,50 @@ func (p *Parser) parseStructFieldType(orderedStruct OrderedStructType, fieldName
 	}
 }
 
-func (p *Parser) parseStructField(orderedStruct OrderedStructType, field *ast.Field) ([]StructField, error) {
-	if len(field.Names) > 1 {
-		return []StructField{}, errors.New("More than one name returned")
-	}
+func (p *Parser) parseEmbeddedStruct(orderedStruct OrderedStructType, field ast.Expr) (EmbeddedStructField, error) {
+	switch t := field.(type) {
+	case *ast.Ident:
+		// Same package Embedded structs
+		// The same package so we don't need to go search for dependencies.
+		return EmbeddedStructField{Type: orderedStruct.PackagePath + "-" + t.Name, name: ""}, nil
+	case *ast.SelectorExpr:
+		selection := t.Sel.Name
 
-	if len(field.Names) == 0 {
-		ident, ok := field.Type.(*ast.Ident)
-		if ok {
-			return p.parseEmbeddedStructField(orderedStruct, ident.Name)
-		}
-
-		//
-		// TODO:
-		// What we do currently is: Find a dependency, parse as the name,
-		// and add that struct to the end of our queue.
-		// But with embedded structs you need to know straight away
-		//
-		// In this situation, we should send the embedded struct to the back of the queue.
-		// And then check the processed structs where we will find this dependency.
-		//
-		// Then we can take its fields and add them on here.
-		//
-		// EDIT:
-		// Fuck that, let's just have a type called `EmbeddedStructField` and do this processing in post.
-		// This will also allow us to simplify the regular `EmbeddedStructs` which work on same package level
-		// And never have to fuck around with processing order.
-		//
-
-		selectorExpr, ok := field.Type.(*ast.SelectorExpr)
+		ident, ok := t.X.(*ast.Ident)
 		if !ok {
-			return []StructField{}, errors.New(fmt.Sprintf("We do not currently support %T on embedded types", field.Type))
+			return EmbeddedStructField{}, errors.New(fmt.Sprintf("Currently, we don't support %T types in embedded selection fields", t.X))
 		}
 
-		mainExpr, ok := selectorExpr.X.(*ast.Ident)
-		if !ok {
-			return []StructField{}, errors.New(fmt.Sprintf("We do not currently support %T on embedded types", field.Type))
-		}
-
-		// Parse dep field will do all the file handling stuff
-		_, _ = p.parseDependencyField(orderedStruct, "", selectorExpr)
-
-		return []StructField{
-			EmbeddedStructField{
-				Type: p.getPackagePath(orderedStruct.File.Imports, mainExpr.Name) + "-" + selectorExpr.Sel.Name,
-				name: "",
-			},
-		}, nil
+		fmt.Println(ident)
+		fmt.Println(selection)
+		return EmbeddedStructField{}, errors.New(fmt.Sprintf("Currently, we don't support %T types in embedded selection fields", t.X))
+	default:
+		return EmbeddedStructField{}, errors.New(fmt.Sprintf("Currently, we don't support %T types in embedded fields", field))
 	}
-
-	structFields, err := p.parseStructFieldType(orderedStruct, field.Names[0].Name, field.Type)
-	if err != nil {
-		return []StructField{}, err
-	}
-
-	return []StructField{structFields}, nil
 }
 
 func (p *Parser) parseStruct(orderedStruct OrderedStructType) ([]StructField, error) {
 	structFields := make([]StructField, 0)
 
 	for _, field := range orderedStruct.Fields.List {
-		processedFields, err := p.parseStructField(orderedStruct, field)
+		if len(field.Names) == 0 {
+			// Embedded Struct
+
+			processedFields, err := p.parseEmbeddedStruct(orderedStruct, field.Type)
+			if err != nil {
+				return []StructField{}, err
+			}
+
+			structFields = append(structFields, processedFields)
+			continue
+		}
+
+		processedFields, err := p.parseStructFieldType(orderedStruct, field.Names[0].Name, field.Type)
 		if err != nil {
 			return []StructField{}, err
 		}
 
-		structFields = append(structFields, processedFields...)
+		structFields = append(structFields, processedFields)
 	}
 
 	return structFields, nil
@@ -395,46 +352,6 @@ func (p *Parser) Parse() ([]Struct, error) {
 			delete(p.moduleStructs, packageName)
 		}
 
-	}
-
-	for i, s := range p.outputStructs {
-		changed := false
-		for _, field := range s.Fields {
-			embedded, ok := field.(EmbeddedStructField)
-			if !ok {
-				continue
-			}
-
-			changed = true
-
-			index := slices.IndexFunc(p.outputStructs, func(s1 Struct) bool {
-				return s1.Name == embedded.Type
-			})
-
-			if index == -1 {
-				return []Struct{}, errors.New("Could not find indexed of embedded struct")
-			}
-
-			toEmbed := p.outputStructs[index]
-			s.Fields = append(s.Fields, toEmbed.Fields...)
-		}
-
-		if !changed {
-			continue
-		}
-
-		newFields := make([]StructField, 0)
-
-		for _, field := range s.Fields {
-			_, ok := field.(EmbeddedStructField)
-			if ok {
-				continue
-			}
-
-			newFields = append(newFields, field)
-		}
-
-		p.outputStructs[i].Fields = newFields
 	}
 
 	return p.outputStructs, nil
