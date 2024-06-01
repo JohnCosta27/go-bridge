@@ -288,16 +288,22 @@ func (p *Parser) parseEmbeddedStruct(orderedStruct OrderedStructType, field ast.
 		// The same package so we don't need to go search for dependencies.
 		return EmbeddedStructField{Type: orderedStruct.PackagePath + "-" + t.Name, name: ""}, nil
 	case *ast.SelectorExpr:
-		selection := t.Sel.Name
-
-		ident, ok := t.X.(*ast.Ident)
-		if !ok {
-			return EmbeddedStructField{}, errors.New(fmt.Sprintf("Currently, we don't support %T types in embedded selection fields", t.X))
+		dependentField, err := p.parseDependencyField(orderedStruct, "", t)
+		if err != nil {
+			return EmbeddedStructField{}, err
 		}
 
-		fmt.Println(ident)
-		fmt.Println(selection)
-		return EmbeddedStructField{}, errors.New(fmt.Sprintf("Currently, we don't support %T types in embedded selection fields", t.X))
+		basic, isBasic := dependentField.(BasicStructField)
+		if isBasic {
+			return EmbeddedStructField{Type: basic.Type, name: ""}, nil
+		}
+
+		unknown, isUnknown := dependentField.(UnknownStructField)
+		if isUnknown {
+			return EmbeddedStructField{Type: unknown.FullType, name: ""}, nil
+		}
+
+		return EmbeddedStructField{}, errors.New(fmt.Sprintf("Currently, we don't support %T types in embedded dependent fields", dependentField))
 	default:
 		return EmbeddedStructField{}, errors.New(fmt.Sprintf("Currently, we don't support %T types in embedded fields", field))
 	}
