@@ -30,7 +30,7 @@ const A = object({
 }
 
 func TestNestedDeps(t *testing.T) {
-	valibotString, err := MainParse("./test/test2/a.go", "JohnCosta27/go-bridge")
+	valibotString, err := MainParse("./test/test2/a.go", "github.com/JohnCosta27/go-bridge")
 
 	valibotValidator := `
 import { object, number, string } from 'valibot';
