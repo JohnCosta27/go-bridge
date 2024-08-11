@@ -8,7 +8,6 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
-	"time"
 )
 
 type OrderedStructType struct {
@@ -33,10 +32,6 @@ type ModuleStructs = map[string]NameToStructPos
 // We could flatten this map,
 // and make our code a bit nicer.
 // ==================================================
-
-type Bruh struct {
-	dsadsa time.Time
-}
 
 type Parser struct {
 	projectPath  string
@@ -286,9 +281,8 @@ func (p *Parser) parseStructFieldType(orderedStruct OrderedStructType, fieldName
 	case *ast.MapType:
 		return p.parseMapField(orderedStruct, fieldName, t)
 	case *ast.StructType:
-		fields, err := p.parseStruct(OrderedStructType{
-			StructType: t,
-		})
+		orderedStruct.StructType = t
+		fields, err := p.parseStruct(orderedStruct)
 
 		if err != nil {
 			return BasicStructField{}, err

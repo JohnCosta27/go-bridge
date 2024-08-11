@@ -158,13 +158,54 @@ const Nested = object({
 }
 
 func TestDepStructs(t *testing.T) {
-	valibotString, err := MainParse("./test/test6/a.go", "")
+	valibotString, err := MainParse("./test/test6/a.go", "johncosta.tech/go-bridge")
 
 	valibotValidator := `
 import { object, any } from 'valibot';
 
 const Test6 = object({
   time: any(),
+});
+`
+
+	t.Log(valibotString)
+
+	if err != nil {
+		t.Log("Error is not null")
+		t.Log(err)
+		t.FailNow()
+	}
+
+	if valibotString != valibotValidator {
+		t.FailNow()
+	}
+}
+
+func TestNestedDependency(t *testing.T) {
+	valibotString, err := MainParse("./test/test7/a.go", "johncosta.tech/go-bridge")
+
+	valibotValidator := `
+import { object, string } from 'valibot';
+
+const D = object({
+  D: object({
+    D: string(),
+  }),
+});
+
+const B = object({
+  World: object({
+    C: D,
+  }),
+});
+
+const A = object({
+  a: object({
+    b: B,
+    c: object({
+      d: B,
+    }),
+  }),
 });
 `
 
