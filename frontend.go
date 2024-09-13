@@ -8,6 +8,7 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const EMBEDDED_DEP = "SUPER SECRET STRING FOR EMBEDDED DEPS"
@@ -145,6 +146,10 @@ func (p *Parser) parseEmbeddedStructField(orderedStruct OrderedStructType, struc
 func (p *Parser) getPackagePath(imports []*ast.ImportSpec, packageName string) string {
 	for _, i := range imports {
 		v := i.Path.Value
+		if !strings.Contains(v, p.projectPath) {
+			continue
+		}
+
 		v = v[len(p.projectPath)+2 : len(v)-1]
 
 		_, lastPath := filepath.Split(v)
@@ -157,10 +162,39 @@ func (p *Parser) getPackagePath(imports []*ast.ImportSpec, packageName string) s
 	return ""
 }
 
+func stripString(s string) string {
+	return s[1 : len(s)-1]
+}
+
+func (p *Parser) isLocalDependency(imports []*ast.ImportSpec, moduleName string) bool {
+	for _, i := range imports {
+		strippedValue := stripString(i.Path.Value)
+		importBase := filepath.Base(strippedValue)
+		if importBase == moduleName {
+			if len(strippedValue) < len(p.projectPath) {
+				return false
+			}
+
+			return strippedValue[0:len(p.projectPath)] == p.projectPath
+		}
+	}
+
+	// Potentially float an error.
+	// This can only be triggered by a Go file that would fail dependency check.
+	panic("unreachable")
+}
+
 func (p *Parser) parseDependencyField(orderedStruct OrderedStructType, fieldName string, expr *ast.SelectorExpr) (StructField, error) {
 	packageName, ok := expr.X.(*ast.Ident)
 	if !ok {
 		return BasicStructField{}, errors.New("Could not match type of package")
+	}
+
+	// nested.something
+	// time.Time
+
+	if !p.isLocalDependency(orderedStruct.File.Imports, packageName.Name) {
+		return UnknownStructField{FullType: packageName.Name + "." + expr.Sel.Name, name: fieldName}, nil
 	}
 
 	// ==== TODO: Refactor into seperate function ====
@@ -197,21 +231,7 @@ func (p *Parser) parseDependencyField(orderedStruct OrderedStructType, fieldName
 
 	packageStructs, exists := p.moduleStructs[fullPath]
 	if !exists {
-
-		//
-		// If the structs does not exist in a dependency, then this must be some
-		// external dependency instead of a package dependency.
-		//
-		// We look for our own setup to see if we have a matching type,
-		// otherwise we do with "any".
-		//
-
-		ident, ok := expr.X.(*ast.Ident)
-		if !ok {
-			return BasicStructField{}, errors.New("Expression type should be ident")
-		}
-
-		return UnknownStructField{FullType: ident.Name + "." + expr.Sel.Name, name: fieldName}, nil
+		return BasicStructField{}, errors.New("Should always exist at this point")
 	}
 
 	//
