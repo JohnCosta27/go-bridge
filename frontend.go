@@ -422,16 +422,15 @@ func (p *Parser) Parse() ([]Struct, error) {
 					continue
 				}
 
+				// This works well. If you don't have more complex inline types
+				// such as an anonymous struct or map or some combination of either.
+
 				processedFields = append(processedFields, ps.Fields...)
 			}
 		}
 
 		// kinda evil?
 		processedStructs[i].Fields = processedFields
-	}
-
-	for _, s := range processedStructs {
-		fmt.Println(s)
 	}
 
 	return processedStructs, nil
