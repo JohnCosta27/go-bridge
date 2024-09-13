@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 )
 
+const EMBEDDED_DEP = "SUPER SECRET STRING FOR EMBEDDED DEPS"
+
 type OrderedStructType struct {
 	*ast.StructType
 	File *ast.File
@@ -300,12 +302,22 @@ func (p *Parser) parseStructField(orderedStruct OrderedStructType, field *ast.Fi
 	}
 
 	if len(field.Names) == 0 {
-		ident, ok := field.Type.(*ast.Ident)
-		if !ok {
-			return []StructField{}, errors.New("Do not currently support non-ident types on embedded")
-		}
+		switch field.Type.(type) {
+		case *ast.Ident:
+			ident := field.Type.(*ast.Ident)
+			return p.parseEmbeddedStructField(orderedStruct, ident.Name)
+		case *ast.SelectorExpr:
+			selector := field.Type.(*ast.SelectorExpr)
+			embeddedDepField, err := p.parseDependencyField(orderedStruct, EMBEDDED_DEP, selector)
 
-		return p.parseEmbeddedStructField(orderedStruct, ident.Name)
+			if err != nil {
+				return []StructField{}, err
+			}
+
+			return []StructField{embeddedDepField}, nil
+		default:
+			return []StructField{}, errors.New(fmt.Sprintf("Do not currently support %T types on embedded", field.Type))
+		}
 	}
 
 	structFields, err := p.parseStructFieldType(orderedStruct, field.Names[0].Name, field.Type)
@@ -355,6 +367,39 @@ func (p *Parser) Parse() ([]Struct, error) {
 			delete(p.moduleStructs, packageName)
 		}
 
+	}
+
+	//
+	// When we are processing embedded struct fields two things can happen.
+	// 1. It's embedded from a struct in the same package. At which point we can
+	//    grab it's fields very easily.
+	//
+	// 2. They are a dependency struct, which then are added as a BasicStructField,
+	//    and the dependency is resolved later on.
+	//
+	// For approach 2, we need to do some post procesing, to get the struct fields
+	// in the correct position.
+	//
+	// This creates two approaches for the same thing. Which is not ideal.
+	// I actaully think we could move the embedded structs over to the backend,
+	// but I'm not sure yet. Until then, we keep both approaches.
+	//
+
+	for _, s := range processedStructs {
+		for _, field := range s.Fields {
+			if field.Name() != EMBEDDED_DEP {
+				continue
+			}
+
+			embeddedDepField := field.(BasicStructField)
+			for _, ps := range processedStructs {
+				if ps.Name != embeddedDepField.Type {
+					continue
+				}
+			}
+
+			fmt.Println(embeddedDepField.Type)
+		}
 	}
 
 	return processedStructs, nil

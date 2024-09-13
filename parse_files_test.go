@@ -221,3 +221,44 @@ const A = object({
 		t.FailNow()
 	}
 }
+
+func TestEmbeddedDeps(t *testing.T) {
+	valibotString, err := MainParse("./test/test8/a.go", "johncosta.tech/go-bridge")
+
+	valibotValidator := `
+import { object, string } from 'valibot';
+
+const D = object({
+  D: object({
+    D: string(),
+  }),
+});
+
+const B = object({
+  World: object({
+    C: D,
+  }),
+});
+
+const A = object({
+  a: object({
+    b: B,
+    c: object({
+      d: B,
+    }),
+  }),
+});
+`
+
+	t.Log(valibotString)
+
+	if err != nil {
+		t.Log("Error is not null")
+		t.Log(err)
+		t.FailNow()
+	}
+
+	if valibotString != valibotValidator {
+		t.FailNow()
+	}
+}
