@@ -194,6 +194,7 @@ const D = object({
 });
 
 const B = object({
+  Hello: string(),
   World: object({
     C: D,
   }),
