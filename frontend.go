@@ -321,7 +321,9 @@ func (p *Parser) parseStructField(orderedStruct OrderedStructType, field *ast.Fi
 		return []StructField{}, errors.New("More than one name returned")
 	}
 
-	if len(field.Names) == 0 {
+	isEmbeddedField := len(field.Names) == 0
+
+	if isEmbeddedField {
 		switch field.Type.(type) {
 		case *ast.Ident:
 			ident := field.Type.(*ast.Ident)
@@ -401,13 +403,16 @@ func (p *Parser) Parse() ([]Struct, error) {
 	// in the correct position.
 	//
 	// This creates two approaches for the same thing. Which is not ideal.
-	// I actaully think we could move the embedded structs over to the backend,
+	// I actually think we could move the embedded structs over to the backend,
 	// but I'm not sure yet. Until then, we keep both approaches.
 	//
 
-	for _, s := range processedStructs {
+	for i, s := range processedStructs {
+		processedFields := make([]StructField, 0)
+
 		for _, field := range s.Fields {
 			if field.Name() != EMBEDDED_DEP {
+				processedFields = append(processedFields, field)
 				continue
 			}
 
@@ -416,10 +421,17 @@ func (p *Parser) Parse() ([]Struct, error) {
 				if ps.Name != embeddedDepField.Type {
 					continue
 				}
-			}
 
-			fmt.Println(embeddedDepField.Type)
+				processedFields = append(processedFields, ps.Fields...)
+			}
 		}
+
+		// kinda evil?
+		processedStructs[i].Fields = processedFields
+	}
+
+	for _, s := range processedStructs {
+		fmt.Println(s)
 	}
 
 	return processedStructs, nil

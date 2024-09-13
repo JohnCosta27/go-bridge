@@ -227,27 +227,17 @@ func TestEmbeddedDeps(t *testing.T) {
 	valibotString, err := MainParse("./test/test8/a.go", "github.com/JohnCosta27/go-bridge")
 
 	valibotValidator := `
-import { object, string } from 'valibot';
+import { object, string, number } from 'valibot';
 
-const D = object({
-  D: object({
-    D: string(),
-  }),
+const A = object({
+  NormalField: string(),
+  Hello: string(),
+  World: number(),
 });
 
 const B = object({
-  World: object({
-    C: D,
-  }),
-});
-
-const A = object({
-  a: object({
-    b: B,
-    c: object({
-      d: B,
-    }),
-  }),
+  Hello: string(),
+  World: number(),
 });
 `
 
