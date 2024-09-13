@@ -3,7 +3,7 @@ package main
 import "testing"
 
 func TestSamePackage(t *testing.T) {
-	valibotString, err := MainParse("./test/test1/a.go", "JohnCosta27/go-bridge")
+	valibotString, err := MainParse("./test/test1/a.go", "github.com/JohnCosta27/go-bridge")
 
 	valibotValidator := `
 import { object, string } from 'valibot';
@@ -30,7 +30,7 @@ const A = object({
 }
 
 func TestNestedDeps(t *testing.T) {
-	valibotString, err := MainParse("./test/test2/a.go", "JohnCosta27/go-bridge")
+	valibotString, err := MainParse("./test/test2/a.go", "github.com/JohnCosta27/go-bridge")
 
 	valibotValidator := `
 import { object, number, string } from 'valibot';
@@ -61,7 +61,7 @@ const MainStruct = object({
 }
 
 func TestNestedStructArrayTypes(t *testing.T) {
-	valibotString, err := MainParse("./test/test3/a.go", "JohnCosta27/go-bridge")
+	valibotString, err := MainParse("./test/test3/a.go", "github.com/JohnCosta27/go-bridge")
 
 	valibotValidator := `
 import { object, string, number, array } from 'valibot';
@@ -92,7 +92,7 @@ const TestingStruct = object({
 }
 
 func TestFileMapTypes(t *testing.T) {
-	valibotString, err := MainParse("./test/test4/a.go", "JohnCosta27/go-bridge")
+	valibotString, err := MainParse("./test/test4/a.go", "github.com/JohnCosta27/go-bridge")
 
 	valibotValidator := `
 import { object, string, record } from 'valibot';
@@ -120,7 +120,7 @@ const WithMap = object({
 }
 
 func TestDuplicateNames(t *testing.T) {
-	valibotString, err := MainParse("./test/test5/a.go", "JohnCosta27/go-bridge")
+	valibotString, err := MainParse("./test/test5/a.go", "github.com/JohnCosta27/go-bridge")
 
 	valibotValidator := `
 import { object, string } from 'valibot';
@@ -158,7 +158,7 @@ const Nested = object({
 }
 
 func TestDepStructs(t *testing.T) {
-	valibotString, err := MainParse("./test/test6/a.go", "johncosta.tech/go-bridge")
+	valibotString, err := MainParse("./test/test6/a.go", "github.com/JohnCosta27/go-bridge")
 
 	valibotValidator := `
 import { object, any } from 'valibot';
@@ -182,7 +182,7 @@ const Test6 = object({
 }
 
 func TestNestedDependency(t *testing.T) {
-	valibotString, err := MainParse("./test/test7/a.go", "johncosta.tech/go-bridge")
+	valibotString, err := MainParse("./test/test7/a.go", "github.com/JohnCosta27/go-bridge")
 
 	valibotValidator := `
 import { object, string } from 'valibot';
@@ -223,7 +223,7 @@ const A = object({
 }
 
 func TestEmbeddedDeps(t *testing.T) {
-	valibotString, err := MainParse("./test/test8/a.go", "johncosta.tech/go-bridge")
+	valibotString, err := MainParse("./test/test8/a.go", "github.com/JohnCosta27/go-bridge")
 
 	valibotValidator := `
 import { object, string } from 'valibot';
