@@ -408,29 +408,7 @@ func (p *Parser) Parse() ([]Struct, error) {
 	//
 
 	for i, s := range processedStructs {
-		processedFields := make([]StructField, 0)
-
-		for _, field := range s.Fields {
-			if field.Name() != EMBEDDED_DEP {
-				processedFields = append(processedFields, field)
-				continue
-			}
-
-			embeddedDepField := field.(BasicStructField)
-			for _, ps := range processedStructs {
-				if ps.Name != embeddedDepField.Type {
-					continue
-				}
-
-				// This works well. If you don't have more complex inline types
-				// such as an anonymous struct or map or some combination of either.
-
-				processedFields = append(processedFields, ps.Fields...)
-			}
-		}
-
-		// kinda evil?
-		processedStructs[i].Fields = processedFields
+		processedStructs[i] = rebuildStruct(processedStructs, s)
 	}
 
 	return processedStructs, nil

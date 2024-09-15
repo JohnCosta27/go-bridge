@@ -8,5 +8,13 @@ type A struct {
 
 	MyStruct struct {
 		nested.B
+
+		MyNestedStruct map[string]struct {
+			nested.B
+		}
+
+		MyAnonArrayStruct []struct {
+			nested.B
+		}
 	}
 }

@@ -233,6 +233,18 @@ const A = object({
   NormalField: string(),
   Hello: string(),
   World: number(),
+  MyStruct: object({
+    Hello: string(),
+    World: number(),
+    MyNestedStruct: object({
+      Hello: string(),
+      World: number(),
+    }),
+    MyAnonArrayStruct: object({
+      Hello: string(),
+      World: number(),
+    }),
+  }),
 });
 
 const B = object({
